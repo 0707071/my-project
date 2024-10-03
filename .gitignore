@@ -1,0 +1,47 @@
+# Ignore cache files and folders
+__pycache__/
+.pytest_cache/
+venv/
+results/*
+!results/example_task
+**/HTML/
+
+# Ignore local IDE settings
+.idea/
+.vscode/
+generate_markdown_map.py
+
+# Ignore files with sensitive information
+api_keys.py
+
+# Ignore data files
+*.csv
+*.xlsx
+*.md
+
+# Ignore temporary files
+*.log
+*.swp
+*.swo
+
+# Ignore build files
+dist/
+build/
+*.pyc
+
+# Ignore settings files
+*.ini
+*.conf
+
+# Ignore localization files
+*.mo
+
+# Ignore debug files
+debug.log
+
+# Ignore files with passwords and keys
+*.key
+*.pem
+
+# Ignore files with personal settings
+*.local
