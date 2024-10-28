@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Промпты - {{ client.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Промпты для {{ client.name }}</h1>
+            <div>
+                <a href="{{ url_for('main.new_prompt', id=client.id) }}" 
+                   class="btn btn-success">Новый промпт</a>
+                <a href="{{ url_for('main.client_detail', id=client.id) }}" 
+                   class="btn btn-secondary">Назад к клиенту</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                {% if prompts %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Версия</th>
+                                    <th>Описание</th>
+                                    <th>Статус</th>
+                                    <th>Автор</th>
+                                    <th>Дата создания</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prompt in prompts %}
+                                <tr>
+                                    <td>v{{ prompt.version }}</td>
+                                    <td>{{ prompt.description or 'Нет описания' }}</td>
+                                    <td>
+                                        {% if prompt.is_active %}
+                                        <span class="badge bg-success">Активен</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Неактивен</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ prompt.created_by.username }}</td>
+                                    <td>{{ prompt.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('main.prompt_detail', id=prompt.id) }}" 
+                                           class="btn btn-sm btn-primary">Просмотр</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-center">Промптов пока нет</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

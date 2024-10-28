@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1>Система поиска и анализа данных</h1>
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Клиенты</h5>
+                        <p class="card-text">Управление клиентами и бизнес-кейсами</p>
+                        <a href="{{ url_for('main.clients') }}" class="btn btn-primary">Перейти</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Поиск</h5>
+                        <p class="card-text">Запуск и управление поисковыми запросами</p>
+                        <a href="{{ url_for('main.clients') }}" class="btn btn-primary">Начать поиск</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

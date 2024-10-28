@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}{{ client.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>{{ client.name }}</h1>
+            <div>
+                <a href="{{ url_for('main.client_search', id=client.id) }}" 
+                   class="btn btn-success">Новый поиск</a>
+                <a href="#" class="btn btn-primary">Редактировать</a>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Описание</h5>
+                <p class="card-text">{{ client.description or 'Описание отсутствует' }}</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Поисковые запросы</h5>
+            </div>
+            <div class="card-body">
+                {% if client.search_queries.count() %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Версия</th>
+                                    <th>Основные фразы</th>
+                                    <th>Статус</th>
+                                    <th>Дата создания</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for query in client.search_queries %}
+                                <tr>
+                                    <td>v{{ query.version }}</td>
+                                    <td>{{ query.main_phrases[:100] }}...</td>
+                                    <td>
+                                        {% if query.is_active %}
+                                        <span class="badge bg-success">Активен</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Неактивен</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ query.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-primary">Просмотр</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-center">Поисковых запросов пока нет</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

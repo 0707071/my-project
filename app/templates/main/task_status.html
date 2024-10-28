@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Статус задачи{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Статус выполнения поиска</h4>
+            </div>
+            <div class="card-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" 
+                         aria-valuenow="{{ task.progress }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100"
+                         style="width: {{ task.progress }}%">
+                        {{ task.progress }}%
+                    </div>
+                </div>
+                <div class="task-status mb-3">
+                    Статус: 
+                    <span class="badge bg-{{ 'success' if task.status == 'completed' 
+                                           else 'danger' if task.status == 'failed'
+                                           else 'primary' }}">
+                        {{ task.status }}
+                    </span>
+                </div>
+                
+                <div class="logs-container mb-3">
+                    <h5>Логи выполнения:</h5>
+                    <div id="logs" class="bg-light p-3 rounded" style="height: 200px; overflow-y: auto;">
+                        <div class="text-muted">Ожидание логов...</div>
+                    </div>
+                </div>
+
+                {% if task.error_message %}
+                <div class="alert alert-danger">
+                    {{ task.error_message }}
+                </div>
+                {% endif %}
+
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('main.client_detail', id=task.client_id) }}" 
+                       class="btn btn-primary">Вернуться к клиенту</a>
+                    {% if task.status == 'completed' %}
+                    <a href="{{ url_for('main.task_results', task_id=task.id) }}" 
+                       class="btn btn-success">Просмотреть результаты</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const socket = io();
+    const logsContainer = document.getElementById('logs');
+
+    socket.on('connect', () => {
+        socket.emit('join_task', { task_id: '{{ task.id }}' });
+    });
+
+    socket.on('task_log', (data) => {
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+        logEntry.textContent = `${data.timestamp}: ${data.message}`;
+        logsContainer.appendChild(logEntry);
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+    });
+
+    function updateTaskStatus() {
+        fetch('{{ url_for("main.get_task_status", task_id=task.id) }}')
+            .then(response => response.json())
+            .then(data => {
+                const progressBar = document.querySelector('.progress-bar');
+                progressBar.style.width = data.progress + '%';
+                progressBar.setAttribute('aria-valuenow', data.progress);
+                progressBar.textContent = data.progress + '%';
+                
+                if (data.status !== 'completed' && data.status !== 'failed') {
+                    setTimeout(updateTaskStatus, 2000);
+                } else {
+                    location.reload();
+                }
+            });
+    }
+
+    if (!['completed', 'failed'].includes('{{ task.status }}')) {
+        setTimeout(updateTaskStatus, 2000);
+    }
+});
+</script>
+
+{% block styles %}
+<style>
+.log-entry {
+    font-family: monospace;
+    font-size: 0.9rem;
+    padding: 2px 0;
+}
+.progress-bar {
+    transition: width 0.5s ease;
+}
+</style>
+{% endblock %}
+{% endblock %}

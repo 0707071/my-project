@@ -1,0 +1,17 @@
+from app import db
+from datetime import datetime
+
+class SearchTask(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
+    search_query_id = db.Column(db.Integer, db.ForeignKey('search_query.id'), nullable=False)
+    celery_task_id = db.Column(db.String(36), unique=True)
+    status = db.Column(db.String(20), default='pending')  # pending, running, completed, failed
+    progress = db.Column(db.Integer, default=0)
+    result_file = db.Column(db.String(255))
+    error_message = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    
+    def __repr__(self):
+        return f'<SearchTask {self.id}>'
