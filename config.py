@@ -1,10 +1,17 @@
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
+from urllib.parse import quote_plus
+
+load_dotenv()  # Загружаем переменные из .env
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard-to-guess-string'
+    
+    # Обновляем строку подключения к БД с закодированным паролем
+    password = quote_plus('Dr0w$$@ppostgres')
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///app.db'
+        f'postgresql://flask:{password}@localhost:5432/karhuno'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Redis configuration
