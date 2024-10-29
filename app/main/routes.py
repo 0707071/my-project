@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, Response
+from flask import render_template, redirect, url_for, flash, request, jsonify, Response, current_app
 from flask_login import login_required, current_user
 from app import db
 from app.main.forms import ClientForm, SearchQueryForm, PromptForm
@@ -8,15 +8,19 @@ from app.tasks.search_tasks import run_search
 from app.models.task import SearchTask
 from app.models.prompt import Prompt
 from app.models.search_result import SearchResult
+from app.main import bp
 import csv
 from io import StringIO
-
-bp = Blueprint('main', __name__)
 
 @bp.route('/')
 @login_required
 def index():
-    return render_template('main/index.html')
+    current_app.logger.info('Accessing index page')
+    try:
+        return render_template('main/index.html')
+    except Exception as e:
+        current_app.logger.error(f'Error rendering index page: {str(e)}')
+        return str(e), 500
 
 @bp.route('/clients')
 @login_required
@@ -53,7 +57,7 @@ def client_search(id):
     form = SearchQueryForm()
     
     if form.validate_on_submit():
-        # Получаем последнюю версию запроса
+        # Получаем последнюю версию зароса
         last_query = SearchQuery.query.filter_by(client_id=id).order_by(SearchQuery.version.desc()).first()
         new_version = 1 if not last_query else last_query.version + 1
         
@@ -195,3 +199,16 @@ def export_results(task_id):
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment;filename=results_{task_id}.csv'}
     )
+
+@bp.route('/debug')
+def debug():
+    current_app.logger.info('Accessing debug page')
+    routes = []
+    for rule in current_app.url_map.iter_rules():
+        routes.append({
+            'endpoint': rule.endpoint,
+            'methods': list(rule.methods),
+            'url': str(rule)
+        })
+    current_app.logger.info(f'Available routes: {routes}')  # Добавим логирование маршрутов
+    return jsonify(routes)

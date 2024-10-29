@@ -8,10 +8,8 @@ load_dotenv()  # Загружаем переменные из .env
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard-to-guess-string'
     
-    # Обновляем строку подключения к БД с закодированным паролем
-    password = quote_plus('Dr0w$$@ppostgres')
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        f'postgresql://flask:{password}@localhost:5432/karhuno'
+    # Используем прямую строку подключения с новым паролем
+    SQLALCHEMY_DATABASE_URI = 'postgresql://flask:Dr0w$$appostgres@localhost:5432/karhuno'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Redis configuration
@@ -23,3 +21,9 @@ class Config:
     
     # Session configuration
     PERMANENT_SESSION_LIFETIME = timedelta(days=1)
+
+class DevelopmentConfig(Config):
+    DEVELOPMENT = True
+
+class ProductionConfig(Config):
+    DEBUG = False

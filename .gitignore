@@ -10,7 +10,7 @@ results/*
 .idea/
 .vscode/
 generate_markdown_map.py
-
+.env
 # Ignore files with sensitive information
 api_keys.py
 
@@ -45,3 +45,9 @@ debug.log
 
 # Ignore files with personal settings
 *.local
+
+# Ignore Python/Flask specific files
+*.egg-info/
+.coverage
+htmlcov/
+instance/
