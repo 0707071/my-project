@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Клиенты{% endblock %}
+{% block title %}Clients{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Клиенты</h1>
-            <a href="{{ url_for('main.new_client') }}" class="btn btn-primary">Новый клиент</a>
+            <h1>Clients</h1>
+            <a href="{{ url_for('main.new_client') }}" class="btn btn-primary">New Client</a>
         </div>
         
         <div class="row">
@@ -16,19 +16,19 @@
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">{{ client.name }}</h5>
-                        <p class="card-text">{{ client.description or 'Нет описания' }}</p>
+                        <p class="card-text">{{ client.description or 'No description' }}</p>
                         <div class="d-flex justify-content-between">
                             <a href="{{ url_for('main.client_detail', id=client.id) }}" 
-                               class="btn btn-primary">Подробнее</a>
+                               class="btn btn-primary">Details</a>
                             <a href="{{ url_for('main.client_search', id=client.id) }}" 
-                               class="btn btn-success">Поиск</a>
+                               class="btn btn-success">Search</a>
                         </div>
                     </div>
                 </div>
             </div>
             {% else %}
             <div class="col-12">
-                <p class="text-center">Клиентов пока нет</p>
+                <p class="text-center">No clients yet</p>
             </div>
             {% endfor %}
         </div>

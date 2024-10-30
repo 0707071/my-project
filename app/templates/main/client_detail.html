@@ -9,21 +9,21 @@
             <h1>{{ client.name }}</h1>
             <div>
                 <a href="{{ url_for('main.client_search', id=client.id) }}" 
-                   class="btn btn-success">Новый поиск</a>
-                <a href="#" class="btn btn-primary">Редактировать</a>
+                   class="btn btn-success">New Search</a>
+                <a href="#" class="btn btn-primary">Edit</a>
             </div>
         </div>
 
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Описание</h5>
-                <p class="card-text">{{ client.description or 'Описание отсутствует' }}</p>
+                <h5 class="card-title">Description</h5>
+                <p class="card-text">{{ client.description or 'No description available' }}</p>
             </div>
         </div>
 
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">Поисковые запросы</h5>
+                <h5 class="mb-0">Search Queries</h5>
             </div>
             <div class="card-body">
                 {% if client.search_queries.count() %}
@@ -31,11 +31,11 @@
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Версия</th>
-                                    <th>Основные фразы</th>
-                                    <th>Статус</th>
-                                    <th>Дата создания</th>
-                                    <th>Действия</th>
+                                    <th>Version</th>
+                                    <th>Main Phrases</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -45,14 +45,14 @@
                                     <td>{{ query.main_phrases[:100] }}...</td>
                                     <td>
                                         {% if query.is_active %}
-                                        <span class="badge bg-success">Активен</span>
+                                        <span class="badge bg-success">Active</span>
                                         {% else %}
-                                        <span class="badge bg-secondary">Неактивен</span>
+                                        <span class="badge bg-secondary">Inactive</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ query.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                                     <td>
-                                        <a href="#" class="btn btn-sm btn-primary">Просмотр</a>
+                                        <a href="#" class="btn btn-sm btn-primary">View</a>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -60,7 +60,7 @@
                         </table>
                     </div>
                 {% else %}
-                    <p class="text-center">Поисковых запросов пока нет</p>
+                    <p class="text-center">No search queries yet</p>
                 {% endif %}
             </div>
         </div>

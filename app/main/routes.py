@@ -40,7 +40,7 @@ def new_client():
         )
         db.session.add(client)
         db.session.commit()
-        flash('Клиент успешно создан', 'success')
+        flash('Client created successfully', 'success')
         return redirect(url_for('main.clients'))
     return render_template('main/client_form.html', form=form, title='Новый клиент')
 
@@ -72,7 +72,7 @@ def client_search(id):
         )
         db.session.add(query)
         db.session.commit()
-        flash('Поисковый запрос сохранен', 'success')
+        flash('Search query saved', 'success')
         return redirect(url_for('main.client_detail', id=id))
         
     return render_template('main/search_form.html', form=form, client=client)
@@ -84,7 +84,7 @@ def run_client_search(id):
     search_query_id = request.form.get('search_query_id')
     
     if not search_query_id:
-        flash('Не выбран поисковый запрос', 'danger')
+        flash('No search query selected', 'danger')
         return redirect(url_for('main.client_detail', id=id))
     
     # Создаем задачу в БД
@@ -101,7 +101,7 @@ def run_client_search(id):
     task.celery_task_id = celery_task.id
     db.session.commit()
     
-    flash('Поиск запущен', 'success')
+    flash('Search started', 'success')
     return redirect(url_for('main.task_status', task_id=task.id))
 
 @bp.route('/task/<int:task_id>')
@@ -153,7 +153,7 @@ def new_prompt(id):
             
         db.session.add(prompt)
         db.session.commit()
-        flash('Промпт успешно создан', 'success')
+        flash('Prompt created successfully', 'success')
         return redirect(url_for('main.client_prompts', id=id))
         
     return render_template('main/prompt_form.html', form=form, client=client, title='Новый промпт')

@@ -15,7 +15,7 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
         if user is None or not user.check_password(form.password.data):
-            flash('Неверное имя пользователя или пароль', 'danger')
+            flash('Invalid username or password', 'danger')
             return redirect(url_for('auth.login'))
         
         login_user(user)
@@ -34,7 +34,7 @@ def logout():
 @login_required
 def register():
     if not current_user.is_admin:
-        flash('Доступ запрещен', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('main.index'))
     
     form = RegistrationForm()
@@ -43,7 +43,7 @@ def register():
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
-        flash('Пользователь успешно зарегистрирован', 'success')
+        flash('User registered successfully', 'success')
         return redirect(url_for('auth.login'))
     
     return render_template('auth/register.html', form=form)

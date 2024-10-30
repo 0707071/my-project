@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Регистрация{% endblock %}
+{% block title %}Registration{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h4 class="mb-0">Регистрация пользователя</h4>
+                <h4 class="mb-0">User Registration</h4>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('auth.register') }}">

@@ -40,7 +40,7 @@ def create_app():
     # Настраиваем login_manager
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Пожалуйста, войдите для доступа к этой странице.'
+    login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
     
     # Регистрируем blueprints

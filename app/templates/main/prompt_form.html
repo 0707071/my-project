@@ -7,7 +7,7 @@
     <div class="col-md-10">
         <div class="card">
             <div class="card-header">
-                <h4 class="mb-0">{{ title }} для {{ client.name }}</h4>
+                <h4 class="mb-0">{{ title }} for {{ client.name }}</h4>
             </div>
             <div class="card-body">
                 <form method="POST">
@@ -31,7 +31,7 @@
                     </div>
                     {{ form.submit(class="btn btn-primary") }}
                     <a href="{{ url_for('main.client_prompts', id=client.id) }}" 
-                       class="btn btn-secondary">Отмена</a>
+                       class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>
