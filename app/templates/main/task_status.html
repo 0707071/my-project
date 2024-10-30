@@ -11,19 +11,22 @@
             </div>
             <div class="card-body">
                 <div class="progress mb-3">
-                    <div class="progress-bar" role="progressbar" style="width: {{ task.progress }}%">
-                        {{ task.progress }}%
+                    <div class="progress-bar" 
+                         role="progressbar" 
+                         data-progress="{{ task.progress }}"
+                         style="width: {{ task.progress }}%"
+                         aria-valuenow="{{ task.progress }}"
+                         aria-valuemin="0" 
+                         aria-valuemax="100">
+                        <span class="progress-text">{{ task.progress }}%</span>
                     </div>
                 </div>
                 
                 <dl class="row">
                     <dt class="col-sm-3">Status</dt>
                     <dd class="col-sm-9">
-                        <span class="badge bg-{{ 'success' if task.status == 'completed' 
-                                               else 'warning' if task.status == 'running'
-                                               else 'danger' if task.status == 'failed'
-                                               else 'secondary' }}">
-                            {{ task.status.title() }}
+                        <span class="badge bg-{{ task.status | status_badge }}">
+                            {{ task.status | title }}
                         </span>
                     </dd>
                     
@@ -55,28 +58,55 @@
 </div>
 {% endblock %}
 
+{% block styles %}
+<style>
+.progress-bar {
+    transition: width 0.3s ease-in-out;
+}
+.progress-text {
+    position: relative;
+    z-index: 1;
+}
+</style>
+{% endblock %}
+
 {% block scripts %}
 <script>
-function updateStatus() {
-    fetch('{{ url_for("main.get_task_status", task_id=task.id) }}')
-        .then(response => response.json())
-        .then(data => {
-            const progressBar = document.querySelector('.progress-bar');
-            progressBar.style.width = data.progress + '%';
-            progressBar.textContent = data.progress + '%';
-            
-            if (data.status !== 'completed' && data.status !== 'failed') {
-                setTimeout(updateStatus, 2000);
-            } else {
-                location.reload();
-            }
-        });
-}
+(function() {
+    'use strict';
+    
+    var statusUrl = "{{ url_for('main.get_task_status', task_id=task.id) }}";
+    var progressBar = document.querySelector('.progress-bar');
+    var progressText = progressBar.querySelector('.progress-text');
+    
+    function updateProgressBar(progress) {
+        progressBar.style.width = progress + '%';
+        progressBar.setAttribute('aria-valuenow', progress);
+        progressText.textContent = progress + '%';
+    }
+    
+    function checkStatus() {
+        fetch(statusUrl)
+            .then(function(response) { 
+                return response.json(); 
+            })
+            .then(function(data) {
+                updateProgressBar(data.progress);
+                
+                if (data.status !== 'completed' && data.status !== 'failed') {
+                    setTimeout(checkStatus, 2000);
+                } else {
+                    window.location.reload();
+                }
+            })
+            .catch(function(error) {
+                console.error('Error:', error);
+            });
+    }
 
-{% if task.status not in ['completed', 'failed'] %}
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(updateStatus, 2000);
-});
-{% endif %}
+    {% if task.status not in ['completed', 'failed'] %}
+    checkStatus();
+    {% endif %}
+})();
 </script>
 {% endblock %}

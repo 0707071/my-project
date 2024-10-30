@@ -42,7 +42,7 @@ def new_client():
         db.session.commit()
         flash('Client created successfully', 'success')
         return redirect(url_for('main.clients'))
-    return render_template('main/client_form.html', form=form, title='Новый клиент')
+    return render_template('main/client_form.html', form=form, title='New Client')
 
 @bp.route('/client/<int:id>')
 @login_required
@@ -156,7 +156,7 @@ def new_prompt(id):
         flash('Prompt created successfully', 'success')
         return redirect(url_for('main.client_prompts', id=id))
         
-    return render_template('main/prompt_form.html', form=form, client=client, title='Новый промпт')
+    return render_template('main/prompt_form.html', form=form, client=client, title='New Prompt')
 
 @bp.route('/prompt/<int:id>')
 @login_required
@@ -182,7 +182,7 @@ def export_results(task_id):
     # Создаем CSV файл
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['URL', 'Заголовок', 'Сниппет', 'Дата публикации', 'Домен'])
+    writer.writerow(['URL', 'Title', 'Snippet', 'Published Date', 'Domain'])
     
     for result in results:
         writer.writerow([
