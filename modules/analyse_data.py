@@ -42,113 +42,56 @@ class RateLimiter:
 
 async def analyse_data(input_filename, output_filename, roles_dir, parser_config):
     """
-    Asynchronously analyzes data using a language model (LLM).
-
-    Args:
-        input_filename (str): Path to the input CSV file with article data.
-        output_filename (str): Path to the output CSV file to save the analysis results.
-        roles_dir (str): Path to the directory containing role descriptions for analysis.
-        parser_config (dict): Configuration for LLM and analysis settings.
-
-    Returns:
-        None
+    Асинхронно анализирует данные с помощью LLM.
     """
-    # Setting up logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s [%(levelname)s] %(message)s',
-        handlers=[
-            logging.StreamHandler()
-        ]
-    )
-
-    # Path to the file with role description
-    role_file = os.path.join(roles_dir, 'prompt.txt')
-
-    # Load role description
-    role_description = load_role_description(role_file)
-
-    # Load data from CSV
-    logging.info(f"Loading data from {input_filename}...")
+    # Загружаем промпт
+    prompt_file = os.path.join(roles_dir, 'prompt.txt')
+    if not os.path.exists(prompt_file):
+        raise ValueError(f"Prompt file not found: {prompt_file}")
+    
+    with open(prompt_file, 'r') as f:
+        prompt_content = f.read()
+        print(f"Using prompt:\n{prompt_content[:200]}...")
+    
+    # Загружаем данные
     df = pd.read_csv(input_filename)
-    logging.info(f"Loaded {len(df)} rows.")
-
-    # Add 'analysis' column if not present
-    if 'analysis' not in df.columns:
-        df['analysis'] = ""
-
-    # Configure LLM client based on parser configuration
-    provider = parser_config.get('provider', 'openai')  # Default to OpenAI
-    llm_client = get_llm_client(provider, parser_config)  # Pass the entire configuration
-
-    # Rate limiter and semaphore for controlling request rate
-    max_rate = parser_config.get('rate_limit', 20)
-    rate_limit_period = parser_config.get('rate_limit_period', 60)
-    rate_limiter = RateLimiter(max_rate=max_rate, period=rate_limit_period)
-
-    semaphore = asyncio.Semaphore(max_rate)
-
-    async def process_row(index, row):
-        """
-        Processes a single row from the dataframe, sends it to the LLM for analysis.
-
-        Args:
-            index (int): Index of the row.
-            row (pd.Series): Row data to be processed.
-
-        Returns:
-            None
-        """
+    print(f"Loaded {len(df)} articles for analysis")
+    
+    # Получаем LLM клиент
+    llm_client = get_llm_client('openai', parser_config)
+    
+    # Анализируем каждую статью
+    for index, row in df.iterrows():
         try:
-            if pd.isna(row['analysis']) or row['analysis'] == "":
-                # Prepare text for analysis
-                full_article_text = ""
-                
-                if 'Organization name' in row and pd.notna(row['Organization name']):
-                    full_article_text += f"Company: {row['Organization name']}\n"
-                
-                if 'Website' in row and pd.notna(row['Website']):
-                    full_article_text += f"Website: {row['Website']}\n"
-                
-                if pd.notna(row['description']):
-                    full_article_text += str(row['description'])
-
-                full_article_text = full_article_text.strip()
-
-                # Only analyze if the article text is long enough
-                if len(full_article_text) >= 100:
-                    if len(full_article_text) > 5000:
-                        full_article_text = full_article_text[:5000]
-                    
-                    # Prepare messages for the LLM
-                    messages = [
-                        {"role": "system", "content": role_description},
-                        {"role": "user", "content": full_article_text}
-                    ]
-                    
-                    async with semaphore:
-                        await rate_limiter.acquire()  # Ensure rate limit compliance
-                        response = await llm_client.get_completion(messages)
-                    
-                    # Store the analysis in the dataframe
-                    df.at[index, 'analysis'] = response
-                else:
-                    logging.info(f"\nRow {index + 1}: text too short for analysis.")
-            else:
-                logging.info(f"\nRow {index + 1}: analysis already performed.")
+            # Подготавливаем текст для анализа
+            article_text = f"Title: {row['title']}\n\nContent: {row['description']}"
+            
+            # Формируем сообщения для LLM
+            messages = [
+                {"role": "system", "content": prompt_content},
+                {"role": "user", "content": article_text}
+            ]
+            
+            # Получаем ответ от LLM
+            response = await llm_client.get_completion(messages)
+            print(f"Got analysis for article {index + 1}/{len(df)}")
+            print(f"Analysis: {response[:200]}...")
+            
+            # Сохраняем анализ
+            df.at[index, 'analysis'] = response
+            
+            # Периодически сохраняем результаты
+            if (index + 1) % 10 == 0:
+                df.to_csv(output_filename, index=False)
+                print(f"Saved progress: {index + 1} articles analyzed")
         
         except Exception as e:
-            logging.error(f"\nError processing row {index + 1}: {e}")
-
-        # Save results after processing each row
-        df.to_csv(output_filename, index=False)
-        logging.info(f"Results saved to '{output_filename}'. Processed {index + 1} rows.")
-
-    # Create tasks for each row and execute them asynchronously
-    tasks = [process_row(index, row) for index, row in df.iterrows()]
-    await asyncio.gather(*tasks)
-
-    logging.info("Analysis completed.")
+            print(f"Error analyzing article {index + 1}: {str(e)}")
+            df.at[index, 'analysis'] = f"Error: {str(e)}"
+    
+    # Сохраняем финальные результаты
+    df.to_csv(output_filename, index=False)
+    print("Analysis completed and saved")
 
 def run_analyse_data(input_filename, output_filename, roles_dir, parser_config):
     """

@@ -7,8 +7,9 @@ from config import Config
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from app.websockets import socketio, init_websockets
 
-# Инициализируем расширения
+# Initialize extensions
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
@@ -21,7 +22,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Настройка логирования
+    # Configure logging
     if not os.path.exists('logs'):
         os.mkdir('logs')
     file_handler = RotatingFileHandler('logs/karhuno.log', maxBytes=10240, backupCount=10)
@@ -33,17 +34,29 @@ def create_app():
     app.logger.setLevel(logging.INFO)
     app.logger.info('Karhuno startup')
 
-    # Инициализируем расширения
+    # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
     
-    # Настраиваем login_manager
+    # Configure login_manager
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
     
-    # Регистрируем blueprints
+    @app.template_filter('status_badge')
+    def status_badge(status):
+        return {
+            'completed': 'success',
+            'running': 'warning',
+            'failed': 'danger',
+            'pending': 'secondary'
+        }.get(status, 'secondary')
+    
+    # Initialize WebSocket before registering blueprints
+    init_websockets(app)
+    
+    # Register blueprints
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.logger.info('Registered auth blueprint')
@@ -56,5 +69,5 @@ def create_app():
 
     return app
 
-# Импортируем модели здесь, чтобы избежать циклических импортов
+# Import models here to avoid circular imports
 from app.models import user, client, prompt, search_query, search_result, task

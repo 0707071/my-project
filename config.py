@@ -1,14 +1,13 @@
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
-from urllib.parse import quote_plus
 
-load_dotenv()  # Загружаем переменные из .env
+load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard-to-guess-string'
     
-    # Используем прямую строку подключения с новым паролем
+    # Database
     SQLALCHEMY_DATABASE_URI = 'postgresql://flask:Dr0w$$appostgres@localhost:5432/karhuno'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     

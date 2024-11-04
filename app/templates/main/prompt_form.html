@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block head %}
+{{ super() }}
+<style>
+.field-row { 
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+.remove-field {
+    float: right;
+}
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -10,25 +23,48 @@
                 <h4 class="mb-0">{{ title }} for {{ client.name }}</h4>
             </div>
             <div class="card-body">
-                <form method="POST">
+                <form method="POST" id="promptForm">
                     {{ form.hidden_tag() }}
-                    <div class="mb-3">
-                        {{ form.content.label(class="form-label") }}
-                        {{ form.content(class="form-control", rows=10) }}
-                        {% for error in form.content.errors %}
-                            <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    <div class="mb-3">
-                        {{ form.description.label(class="form-label") }}
-                        {{ form.description(class="form-control", rows=3) }}
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            {{ form.is_active(class="form-check-input") }}
-                            {{ form.is_active.label(class="form-check-label") }}
+                    
+                    <!-- Основные поля промпта -->
+                    <div class="mb-4">
+                        <h5>Prompt Settings</h5>
+                        <div class="mb-3">
+                            {{ form.content.label(class="form-label") }}
+                            {{ form.content(class="form-control", rows=10) }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control", rows=3) }}
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.is_active(class="form-check-input") }}
+                                {{ form.is_active.label(class="form-check-label") }}
+                            </div>
                         </div>
                     </div>
+                    
+                    <!-- Поля для колонок результатов -->
+                    <div class="mb-4">
+                        <h5>Result Fields</h5>
+                        <p class="text-muted">Add column names in the order they appear in the model's response</p>
+                        <div id="fields-container">
+                            {% for field_form in form.fields %}
+                            <div class="field-row">
+                                <button type="button" class="btn btn-sm btn-danger remove-field">Remove</button>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        {{ field_form.form.name.label(class="form-label") }}
+                                        {{ field_form.form.name(class="form-control", placeholder="Enter column name") }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="btn btn-success" id="add-field">Add Field</button>
+                    </div>
+                    
                     {{ form.submit(class="btn btn-primary") }}
                     <a href="{{ url_for('main.client_prompts', id=client.id) }}" 
                        class="btn btn-secondary">Cancel</a>
@@ -37,4 +73,71 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('fields-container');
+    const addButton = document.getElementById('add-field');
+    const promptForm = document.getElementById('promptForm');
+    let fieldCount = {{ form.fields|length }};
+    
+    // Шаблон для нового поля
+    const fieldTemplate = `
+        <div class="field-row">
+            <button type="button" class="btn btn-sm btn-danger remove-field">Remove</button>
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">Column Name</label>
+                    <input type="text" name="fields-${fieldCount}-form-name" class="form-control" placeholder="Enter column name" required>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Добавление нового поля
+    addButton.addEventListener('click', function() {
+        container.insertAdjacentHTML('beforeend', fieldTemplate);
+        fieldCount++;
+    });
+    
+    // Удаление поля
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-field')) {
+            e.target.closest('.field-row').remove();
+            reorderFields();
+        }
+    });
+
+    // Обработка отправки формы
+    promptForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Переупорядочиваем поля
+        reorderFields();
+        
+        // Проверяем, что есть хотя бы одно поле
+        const fields = container.querySelectorAll('.field-row');
+        if (fields.length === 0) {
+            alert('Please add at least one field');
+            return;
+        }
+        
+        // Отправляем форму
+        this.submit();
+    });
+
+    // Функция для переупорядочивания полей
+    function reorderFields() {
+        const fields = container.querySelectorAll('.field-row');
+        fields.forEach((field, index) => {
+            const input = field.querySelector('input[name^="fields-"]');
+            if (input) {
+                input.name = `fields-${index}-name`;
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

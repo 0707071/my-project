@@ -45,8 +45,23 @@
                                     <td>{{ prompt.created_by.username }}</td>
                                     <td>{{ prompt.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                                     <td>
-                                        <a href="{{ url_for('main.prompt_detail', id=prompt.id) }}" 
-                                           class="btn btn-sm btn-primary">Просмотр</a>
+                                        <div class="btn-group">
+                                            <a href="{{ url_for('main.prompt_detail', id=prompt.id) }}" 
+                                               class="btn btn-sm btn-primary">Просмотр</a>
+                                            <a href="{{ url_for('main.edit_prompt', id=client.id, prompt_id=prompt.id) }}" 
+                                               class="btn btn-sm btn-warning">Редактировать</a>
+                                            {% if not prompt.is_active %}
+                                            <form method="POST" action="{{ url_for('main.activate_prompt', id=client.id, prompt_id=prompt.id) }}"
+                                                  style="display: inline;">
+                                                <button type="submit" class="btn btn-sm btn-success">Активировать</button>
+                                            </form>
+                                            <form method="POST" action="{{ url_for('main.delete_prompt', id=client.id, prompt_id=prompt.id) }}"
+                                                  style="display: inline;"
+                                                  onsubmit="return confirm('Вы уверены, что хотите удалить этот промпт?');">
+                                                <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -60,4 +75,16 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.btn-group .btn {
+    margin-right: 4px;
+}
+.btn-group form {
+    display: inline-block;
+    margin-right: 4px;
+}
+</style>
 {% endblock %}

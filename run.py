@@ -1,5 +1,4 @@
-from app import create_app
-from app.websockets import socketio
+from app import create_app, socketio
 
 app = create_app()
 

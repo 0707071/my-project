@@ -13,6 +13,19 @@ class Prompt(db.Model):
     
     # Связи
     created_by = db.relationship('User', backref='prompts')
+    fields = db.relationship('PromptField', 
+                           backref=db.backref('parent_prompt', lazy=True),
+                           order_by='PromptField.order',
+                           cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<Prompt {self.id} v{self.version}>'
+
+class PromptField(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    prompt_id = db.Column(db.Integer, db.ForeignKey('prompt.id'), nullable=False)
+    name = db.Column(db.String(100))  # Название колонки
+    order = db.Column(db.Integer)  # Порядок в ответе
+    
+    def __repr__(self):
+        return f'<PromptField {self.name}>'

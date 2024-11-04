@@ -48,7 +48,7 @@ def new_client():
 @login_required
 def client_detail(id):
     client = Client.query.get_or_404(id)
-    return render_template('main/client_detail.html', client=client)
+    return render_template('main/client_detail.html', client=client, SearchTask=SearchTask)
 
 @bp.route('/client/<int:id>/search', methods=['GET', 'POST'])
 @login_required
@@ -57,7 +57,7 @@ def client_search(id):
     form = SearchQueryForm()
     
     if form.validate_on_submit():
-        # Получаем последнюю версию зароса
+        # Get the latest query version
         last_query = SearchQuery.query.filter_by(client_id=id).order_by(SearchQuery.version.desc()).first()
         new_version = 1 if not last_query else last_query.version + 1
         
@@ -87,7 +87,7 @@ def run_client_search(id):
         flash('No search query selected', 'danger')
         return redirect(url_for('main.client_detail', id=id))
     
-    # Создаем задачу в БД
+    # Create task in DB
     task = SearchTask(
         client_id=id,
         search_query_id=search_query_id,
@@ -96,7 +96,7 @@ def run_client_search(id):
     db.session.add(task)
     db.session.commit()
     
-    # Запускаем асинхронную задачу
+    # Start async task
     celery_task = run_search.delay(task.id)
     task.celery_task_id = celery_task.id
     db.session.commit()
@@ -138,6 +138,7 @@ def new_prompt(id):
         last_prompt = Prompt.query.filter_by(client_id=id).order_by(Prompt.version.desc()).first()
         new_version = 1 if not last_prompt else last_prompt.version + 1
         
+        # Создаем новый промпт
         prompt = Prompt(
             client_id=id,
             version=new_version,
@@ -147,16 +148,124 @@ def new_prompt(id):
             created_by_id=current_user.id
         )
         
+        # Если промпт активный, деактивируем остальные
         if form.is_active.data:
-            # Деактивируем другие промпты
             Prompt.query.filter_by(client_id=id, is_active=True).update({'is_active': False})
-            
-        db.session.add(prompt)
-        db.session.commit()
-        flash('Prompt created successfully', 'success')
-        return redirect(url_for('main.client_prompts', id=id))
         
+        db.session.add(prompt)
+        
+        # Добавляем поля промпта
+        for i, field_form in enumerate(form.fields):
+            field = PromptField(
+                prompt=prompt,
+                name=field_form.name.data,
+                order=i
+            )
+            db.session.add(field)
+        
+        try:
+            db.session.commit()
+            flash('Prompt created successfully', 'success')
+            return redirect(url_for('main.client_detail', id=id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating prompt: {str(e)}', 'danger')
+    
     return render_template('main/prompt_form.html', form=form, client=client, title='New Prompt')
+
+@bp.route('/client/<int:id>/prompt/<int:prompt_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_prompt(id, prompt_id):
+    client = Client.query.get_or_404(id)
+    prompt = Prompt.query.get_or_404(prompt_id)
+    
+    if prompt.client_id != id:
+        flash('Access denied', 'danger')
+        return redirect(url_for('main.client_prompts', id=id))
+    
+    form = PromptForm(obj=prompt)
+    
+    if form.validate_on_submit():
+        prompt.content = form.content.data
+        prompt.description = form.description.data
+        
+        # Обработка активного статуса
+        if form.is_active.data and not prompt.is_active:
+            Prompt.query.filter_by(client_id=id, is_active=True).update({'is_active': False})
+        prompt.is_active = form.is_active.data
+        
+        # Обновляем поля
+        # Сначала удаляем старые
+        PromptField.query.filter_by(prompt_id=prompt.id).delete()
+        
+        # Добавляем новые
+        for i, field_form in enumerate(form.fields):
+            field = PromptField(
+                prompt=prompt,
+                name=field_form.name.data,
+                description=field_form.description.data,
+                field_type=field_form.field_type.data,
+                order=i,
+                is_required=field_form.is_required.data
+            )
+            db.session.add(field)
+        
+        db.session.commit()
+        flash('Prompt updated successfully', 'success')
+        return redirect(url_for('main.client_prompts', id=id))
+    
+    # Заполняем форму текущими полями
+    while len(form.fields) < len(prompt.fields):
+        form.fields.append_entry()
+    for i, field in enumerate(prompt.fields):
+        form.fields[i].name.data = field.name
+        form.fields[i].description.data = field.description
+        form.fields[i].field_type.data = field.field_type
+        form.fields[i].is_required.data = field.is_required
+    
+    return render_template('main/prompt_form.html', form=form, client=client, prompt=prompt, title='Edit Prompt')
+
+@bp.route('/client/<int:id>/prompt/<int:prompt_id>/activate', methods=['POST'])
+@login_required
+def activate_prompt(id, prompt_id):
+    client = Client.query.get_or_404(id)
+    prompt = Prompt.query.get_or_404(prompt_id)
+    
+    if prompt.client_id != id:
+        flash('Access denied', 'danger')
+        return redirect(url_for('main.client_prompts', id=id))
+    
+    # Деактивируем текущий активный промпт
+    Prompt.query.filter_by(client_id=id, is_active=True).update({'is_active': False})
+    
+    # Активируем выбранный промпт
+    prompt.is_active = True
+    db.session.commit()
+    
+    flash('Prompt activated successfully', 'success')
+    return redirect(url_for('main.client_prompts', id=id))
+
+@bp.route('/client/<int:id>/prompt/<int:prompt_id>/delete', methods=['POST'])
+@login_required
+def delete_prompt(id, prompt_id):
+    client = Client.query.get_or_404(id)
+    prompt = Prompt.query.get_or_404(prompt_id)
+    
+    if prompt.client_id != id:
+        flash('Access denied', 'danger')
+        return redirect(url_for('main.client_prompts', id=id))
+    
+    # Не даем удалить активный промпт
+    if prompt.is_active:
+        flash('Cannot delete active prompt', 'danger')
+        return redirect(url_for('main.client_prompts', id=id))
+    
+    # Удаляем промпт и его поля
+    db.session.delete(prompt)
+    db.session.commit()
+    
+    flash('Prompt deleted successfully', 'success')
+    return redirect(url_for('main.client_prompts', id=id))
 
 @bp.route('/prompt/<int:id>')
 @login_required
@@ -179,19 +288,47 @@ def export_results(task_id):
     task = SearchTask.query.get_or_404(task_id)
     results = SearchResult.query.filter_by(task_id=task_id).all()
     
-    # Создаем CSV файл
+    # Создаем CSV
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['URL', 'Title', 'Snippet', 'Published Date', 'Domain'])
+    
+    # Заголовки зависят от типа промпта
+    headers = ['URL', 'Title', 'Published Date', 'Domain']
+    if task.prompt and task.prompt.content and 'B2B Lead Analysis' in task.prompt.content:
+        headers.extend(['Company Name', 'Potential Score', 'Sales Notes', 
+                       'Company Description', 'Annual Revenue', 'Country',
+                       'Website', 'Assumed Website'])
+    
+    writer.writerow(headers)
     
     for result in results:
-        writer.writerow([
+        row = [
             result.url,
             result.title,
-            result.snippet,
             result.published_date.strftime('%d.%m.%Y') if result.published_date else '',
             result.domain
-        ])
+        ]
+        
+        # Если есть анализ, разбираем его
+        if result.analysis:
+            try:
+                analysis_list = eval(result.analysis)
+                if len(analysis_list) >= 8:  # B2B Lead Analysis
+                    row.extend([
+                        analysis_list[0],  # Company Name
+                        analysis_list[1],  # Potential Score
+                        analysis_list[2],  # Sales Notes
+                        analysis_list[3],  # Company Description
+                        analysis_list[4],  # Annual Revenue
+                        analysis_list[5],  # Country
+                        analysis_list[6],  # Website
+                        analysis_list[7]   # Assumed Website
+                    ])
+            except Exception as e:
+                app.logger.error(f"Error parsing analysis: {str(e)}")
+                row.extend([''] * 8)  # Добавляем пустые значения при ошибке
+        
+        writer.writerow(row)
     
     output.seek(0)
     return Response(
@@ -210,5 +347,56 @@ def debug():
             'methods': list(rule.methods),
             'url': str(rule)
         })
-    current_app.logger.info(f'Available routes: {routes}')  # Добавим логирование маршрутов
+    current_app.logger.info(f'Available routes: {routes}')  # Add routes logging
     return jsonify(routes)
+
+@bp.route('/client/<int:id>/search/<int:query_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_search_query(id, query_id):
+    client = Client.query.get_or_404(id)
+    query = SearchQuery.query.get_or_404(query_id)
+    
+    # Проверяем, принадлежит ли запрос этому клиенту
+    if query.client_id != id:
+        flash('Access denied', 'danger')
+        return redirect(url_for('main.client_detail', id=id))
+    
+    form = SearchQueryForm(obj=query)
+    
+    if form.validate_on_submit():
+        query.main_phrases = form.main_phrases.data
+        query.include_words = form.include_words.data
+        query.exclude_words = form.exclude_words.data
+        query.notes = form.notes.data
+        query.is_active = form.is_active.data
+        query.days_back = form.days_back.data
+        query.results_per_page = form.results_per_page.data
+        query.num_pages = form.num_pages.data
+        
+        db.session.commit()
+        flash('Search query updated', 'success')
+        return redirect(url_for('main.client_detail', id=id))
+        
+    return render_template('main/search_form.html', form=form, client=client, title='Edit Search Query')
+
+@bp.route('/client/<int:id>/search/<int:query_id>/delete', methods=['POST'])
+@login_required
+def delete_search_query(id, query_id):
+    client = Client.query.get_or_404(id)
+    query = SearchQuery.query.get_or_404(query_id)
+    
+    # Проверяем, принадлежит ли запрос этому клиенту
+    if query.client_id != id:
+        flash('Access denied', 'danger')
+        return redirect(url_for('main.client_detail', id=id))
+    
+    # Удаляем связанные задачи и результаты
+    for task in query.tasks:
+        SearchResult.query.filter_by(task_id=task.id).delete()
+        db.session.delete(task)
+    
+    db.session.delete(query)
+    db.session.commit()
+    
+    flash('Search query deleted', 'success')
+    return redirect(url_for('main.client_detail', id=id))

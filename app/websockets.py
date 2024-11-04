@@ -1,11 +1,12 @@
 from flask_socketio import SocketIO, emit, join_room
-from app import create_app
 from datetime import datetime
 
-socketio = SocketIO()
+# Создаем экземпляр SocketIO с поддержкой message_queue для Celery
+socketio = SocketIO(message_queue='redis://localhost:6379/0')
 
 def init_websockets(app):
-    socketio.init_app(app)
+    """Инициализация WebSocket с приложением Flask"""
+    socketio.init_app(app, message_queue='redis://localhost:6379/0')
 
 @socketio.on('connect')
 def handle_connect():
@@ -18,14 +19,28 @@ def handle_join_task(data):
         join_room(f'task_{task_id}')
         emit('task_log', {
             'timestamp': datetime.now().strftime('%H:%M:%S'),
-            'message': 'Подключено к логам задачи'
+            'message': 'Connected to task logs',
+            'stage': None,
+            'progress': None
         }, room=f'task_{task_id}')
 
-def send_task_log(task_id, message):
+def send_task_log(task_id, message, stage=None, progress=None):
     """
     Отправка лога задачи через WebSocket
+    
+    Args:
+        task_id: ID задачи
+        message: Сообщение для лога
+        stage: Текущий этап (search/clean/analyze)
+        progress: Прогресс этапа (0-100)
     """
-    socketio.emit('task_log', {
-        'timestamp': datetime.now().strftime('%H:%M:%S'),
-        'message': message
-    }, room=f'task_{task_id}')
+    try:
+        socketio.emit('task_log', {
+            'timestamp': datetime.now().strftime('%H:%M:%S'),
+            'message': message,
+            'stage': stage,
+            'progress': progress
+        }, room=f'task_{task_id}')
+    except Exception as e:
+        print(f"WebSocket error: {str(e)}")
+        print(f"Task {task_id} [{stage}]: {message}")

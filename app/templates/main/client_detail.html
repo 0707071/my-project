@@ -8,6 +8,8 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>{{ client.name }}</h1>
             <div>
+                <a href="{{ url_for('main.new_prompt', id=client.id) }}" 
+                   class="btn btn-info">New Prompt</a>
                 <a href="{{ url_for('main.client_search', id=client.id) }}" 
                    class="btn btn-success">New Search</a>
                 <a href="#" class="btn btn-primary">Edit</a>
@@ -18,6 +20,51 @@
             <div class="card-body">
                 <h5 class="card-title">Description</h5>
                 <p class="card-text">{{ client.description or 'No description available' }}</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Analysis Prompts</h5>
+            </div>
+            <div class="card-body">
+                {% if client.prompts.count() %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Version</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prompt in client.prompts %}
+                                <tr>
+                                    <td>v{{ prompt.version }}</td>
+                                    <td>{{ prompt.description or 'No description' }}</td>
+                                    <td>
+                                        {% if prompt.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ prompt.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('main.prompt_detail', id=prompt.id) }}" 
+                                           class="btn btn-sm btn-primary">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-center">No prompts yet. <a href="{{ url_for('main.new_prompt', id=client.id) }}">Create one</a></p>
+                {% endif %}
             </div>
         </div>
 
@@ -52,7 +99,25 @@
                                     </td>
                                     <td>{{ query.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                                     <td>
-                                        <a href="#" class="btn btn-sm btn-primary">View</a>
+                                        <form method="POST" action="{{ url_for('main.run_client_search', id=client.id) }}" 
+                                              style="display: inline;">
+                                            <input type="hidden" name="search_query_id" value="{{ query.id }}">
+                                            <button type="submit" class="btn btn-sm btn-success">Run Search</button>
+                                        </form>
+                                        <a href="{{ url_for('main.edit_search_query', id=client.id, query_id=query.id) }}" 
+                                           class="btn btn-sm btn-warning">Edit</a>
+                                        <form method="POST" action="{{ url_for('main.delete_search_query', id=client.id, query_id=query.id) }}"
+                                              style="display: inline;"
+                                              onsubmit="return confirm('Are you sure you want to delete this search query?');">
+                                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                        </form>
+                                        {% if query.tasks %}
+                                            {% set last_task = query.tasks.order_by(SearchTask.id.desc()).first() %}
+                                            {% if last_task %}
+                                                <a href="{{ url_for('main.task_results', task_id=last_task.id) }}" 
+                                                   class="btn btn-sm btn-primary">View Results</a>
+                                            {% endif %}
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}

@@ -5,8 +5,10 @@ class SearchTask(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
     search_query_id = db.Column(db.Integer, db.ForeignKey('search_query.id'), nullable=False)
+    prompt_id = db.Column(db.Integer, db.ForeignKey('prompt.id'))
     celery_task_id = db.Column(db.String(36), unique=True)
-    status = db.Column(db.String(20), default='pending')  # pending, running, completed, failed
+    status = db.Column(db.String(20), default='pending')  # pending, searching, cleaning, analyzing, completed, failed
+    stage = db.Column(db.String(20), default='search')  # search, clean, analyze
     progress = db.Column(db.Integer, default=0)
     result_file = db.Column(db.String(255))
     error_message = db.Column(db.Text)
