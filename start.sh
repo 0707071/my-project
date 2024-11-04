@@ -1,45 +1,42 @@
 #!/bin/bash
 
-# Проверяем, активировано ли виртуальное окружение
-if [[ "$VIRTUAL_ENV" == "" ]]; then
-    echo "Активируем виртуальное окружение..."
-    source venv/bin/activate
+# Проверяем, установлен ли Python
+if ! command -v python3 &> /dev/null; then
+    echo "Python3 не установлен. Установите Python3 для продолжения."
+    exit 1
 fi
 
-# Функция для остановки всех процессов при выходе
-cleanup() {
-    echo "Останавливаем все процессы..."
-    kill $(jobs -p)
-    exit
-}
+# Проверяем, установлен ли Redis
+if ! command -v redis-cli &> /dev/null; then
+    echo "Redis не установлен. Установите Redis для продолжения."
+    exit 1
+fi
 
-# Регистрируем функцию очистки
-trap cleanup EXIT
+# Создаем виртуальное окружение, если его нет
+if [ ! -d "venv" ]; then
+    echo "Создаем виртуальное окружение..."
+    python3 -m venv venv
+fi
 
-# Проверяем и запускаем Redis, если не запущен
-if ! pgrep redis-server > /dev/null; then
+# Активируем виртуальное окружение
+source venv/bin/activate
+
+# Устанавливаем зависимости
+echo "Устанавливаем зависимости..."
+pip install -r requirements.txt
+
+# Проверяем статус Redis
+redis-cli ping > /dev/null 2>&1
+if [ $? -ne 0 ]; then
     echo "Запускаем Redis..."
-    redis-server &
-    sleep 2
+    sudo service redis-server start
 fi
 
-# Запускаем Celery worker
-echo "Запускаем Celery worker..."
-celery -A celery_worker.celery worker --loglevel=info &
+# Запускаем Celery в фоновом режиме
+echo "Запускаем Celery..."
+celery -A celery_worker.celery worker --loglevel=info > logs/celery.log 2>&1 &
+CELERY_PID=$!
 
-# Ждем запуска Celery
-sleep 2
-
-# Запускаем Flask приложение
-echo "Запускаем Flask приложение..."
-flask run --debug &
-
-# Выводим информацию о запущенных процессах
-echo -e "\nПриложение запущено!"
-echo "* Flask: http://127.0.0.1:5000"
-echo "* Redis: localhost:6379"
-echo "* Celery worker активен"
-echo -e "\nДля остановки нажмите Ctrl+C\n"
-
-# Ждем завершения всех процессов
-wait 
+# Запускаем Flask
+echo "Запускаем Flask..."
+flask run

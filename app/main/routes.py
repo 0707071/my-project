@@ -6,7 +6,7 @@ from app.models.client import Client
 from app.models.search_query import SearchQuery
 from app.tasks.search_tasks import run_search
 from app.models.task import SearchTask
-from app.models.prompt import Prompt
+from app.models.prompt import Prompt, PromptField
 from app.models.search_result import SearchResult
 from app.main import bp
 import csv
@@ -87,10 +87,17 @@ def run_client_search(id):
         flash('No search query selected', 'danger')
         return redirect(url_for('main.client_detail', id=id))
     
+    # Получаем активный промпт клиента
+    active_prompt = Prompt.query.filter_by(client_id=id, is_active=True).first()
+    if not active_prompt:
+        flash('No active prompt found', 'danger')
+        return redirect(url_for('main.client_detail', id=id))
+    
     # Create task in DB
     task = SearchTask(
         client_id=id,
         search_query_id=search_query_id,
+        prompt_id=active_prompt.id,  # Добавляем prompt_id
         status='pending'
     )
     db.session.add(task)
@@ -153,12 +160,14 @@ def new_prompt(id):
             Prompt.query.filter_by(client_id=id, is_active=True).update({'is_active': False})
         
         db.session.add(prompt)
+        db.session.flush()  # Получаем id нового промпта
         
-        # Добавляем поля промпта
-        for i, field_form in enumerate(form.fields):
+        # Добавляем поля промпта из текстового поля
+        column_names = [name.strip() for name in form.column_names.data.split('\n') if name.strip()]
+        for i, name in enumerate(column_names):
             field = PromptField(
-                prompt=prompt,
-                name=field_form.name.data,
+                prompt_id=prompt.id,  # Используем prompt_id вместо prompt
+                name=name,
                 order=i
             )
             db.session.add(field)
@@ -185,43 +194,61 @@ def edit_prompt(id, prompt_id):
     
     form = PromptForm(obj=prompt)
     
-    if form.validate_on_submit():
-        prompt.content = form.content.data
-        prompt.description = form.description.data
-        
-        # Обработка активного статуса
-        if form.is_active.data and not prompt.is_active:
-            Prompt.query.filter_by(client_id=id, is_active=True).update({'is_active': False})
-        prompt.is_active = form.is_active.data
-        
-        # Обновляем поля
-        # Сначала удаляем старые
-        PromptField.query.filter_by(prompt_id=prompt.id).delete()
-        
-        # Добавляем новые
-        for i, field_form in enumerate(form.fields):
-            field = PromptField(
-                prompt=prompt,
-                name=field_form.name.data,
-                description=field_form.description.data,
-                field_type=field_form.field_type.data,
-                order=i,
-                is_required=field_form.is_required.data
-            )
-            db.session.add(field)
-        
-        db.session.commit()
-        flash('Prompt updated successfully', 'success')
-        return redirect(url_for('main.client_prompts', id=id))
+    if request.method == 'POST':
+        current_app.logger.info(f'POST request received')
+        current_app.logger.info(f'Form data: {request.form}')
     
-    # Заполняем форму текущими полями
-    while len(form.fields) < len(prompt.fields):
-        form.fields.append_entry()
-    for i, field in enumerate(prompt.fields):
-        form.fields[i].name.data = field.name
-        form.fields[i].description.data = field.description
-        form.fields[i].field_type.data = field.field_type
-        form.fields[i].is_required.data = field.is_required
+    if form.validate_on_submit():
+        current_app.logger.info('Form validated successfully')
+        try:
+            # Сохраняем старые значения для логирования
+            old_content = prompt.content
+            old_description = prompt.description
+            
+            # Обновляем данные промпта
+            prompt.content = form.content.data
+            prompt.description = form.description.data
+            prompt.is_active = form.is_active.data
+            
+            current_app.logger.info(f'Content changed from: {old_content[:100]} to: {prompt.content[:100]}')
+            
+            # Обработка активного статуса
+            if form.is_active.data and not prompt.is_active:
+                Prompt.query.filter_by(client_id=id, is_active=True).update({'is_active': False})
+            
+            # Обновляем поля
+            PromptField.query.filter_by(prompt_id=prompt.id).delete()
+            column_names = [name.strip() for name in form.column_names.data.split('\n') if name.strip()]
+            current_app.logger.info(f'New column names: {column_names}')
+            
+            for i, name in enumerate(column_names):
+                field = PromptField(
+                    prompt_id=prompt.id,
+                    name=name,
+                    order=i
+                )
+                db.session.add(field)
+            
+            db.session.commit()
+            flash('Prompt updated successfully', 'success')
+            current_app.logger.info('Changes committed successfully')
+            return redirect(url_for('main.client_detail', id=id))
+            
+        except Exception as e:
+            current_app.logger.error(f'Error updating prompt: {str(e)}')
+            db.session.rollback()
+            flash(f'Error updating prompt: {str(e)}', 'danger')
+    else:
+        if form.errors:
+            current_app.logger.error(f'Form validation errors: {form.errors}')
+        if request.method == 'POST':
+            flash('Please check the form for errors', 'danger')
+    
+    # При GET запросе заполняем поле column_names существующими полями
+    if not form.column_names.data:
+        fields = PromptField.query.filter_by(prompt_id=prompt.id).order_by(PromptField.order).all()
+        form.column_names.data = '\n'.join(field.name for field in fields)
+        current_app.logger.info(f'Loaded existing column names: {form.column_names.data}')
     
     return render_template('main/prompt_form.html', form=form, client=client, prompt=prompt, title='Edit Prompt')
 
@@ -288,54 +315,55 @@ def export_results(task_id):
     task = SearchTask.query.get_or_404(task_id)
     results = SearchResult.query.filter_by(task_id=task_id).all()
     
-    # Создаем CSV
-    output = StringIO()
-    writer = csv.writer(output)
-    
-    # Заголовки зависят от типа промпта
-    headers = ['URL', 'Title', 'Published Date', 'Domain']
-    if task.prompt and task.prompt.content and 'B2B Lead Analysis' in task.prompt.content:
-        headers.extend(['Company Name', 'Potential Score', 'Sales Notes', 
-                       'Company Description', 'Annual Revenue', 'Country',
-                       'Website', 'Assumed Website'])
-    
-    writer.writerow(headers)
-    
-    for result in results:
-        row = [
-            result.url,
-            result.title,
-            result.published_date.strftime('%d.%m.%Y') if result.published_date else '',
-            result.domain
-        ]
+    try:
+        # Создаем CSV
+        output = StringIO()
+        writer = csv.writer(output)
         
-        # Если есть анализ, разбираем его
-        if result.analysis:
+        # Получаем поля промпта в правильном порядке
+        prompt_fields = []
+        if task.prompt:
+            prompt_fields = PromptField.query.filter_by(
+                prompt_id=task.prompt_id
+            ).order_by(PromptField.order).all()
+        
+        # Формируем заголовки
+        headers = ['URL', 'Title', 'Published Date', 'Domain']
+        if prompt_fields:
+            headers.extend([field.name for field in prompt_fields])
+        
+        writer.writerow(headers)
+        
+        for result in results:
             try:
-                analysis_list = eval(result.analysis)
-                if len(analysis_list) >= 8:  # B2B Lead Analysis
-                    row.extend([
-                        analysis_list[0],  # Company Name
-                        analysis_list[1],  # Potential Score
-                        analysis_list[2],  # Sales Notes
-                        analysis_list[3],  # Company Description
-                        analysis_list[4],  # Annual Revenue
-                        analysis_list[5],  # Country
-                        analysis_list[6],  # Website
-                        analysis_list[7]   # Assumed Website
-                    ])
+                # Базовые поля
+                row = [
+                    result.url,
+                    result.title,
+                    result.published_date.strftime('%d.%m.%Y') if result.published_date else '',
+                    result.domain
+                ]
+                
+                # Добавляем разобранные поля анализа
+                if prompt_fields:
+                    parsed_analysis = result.parse_analysis()
+                    row.extend([parsed_analysis.get(field.name, '') for field in prompt_fields])
+                
+                writer.writerow(row)
             except Exception as e:
-                app.logger.error(f"Error parsing analysis: {str(e)}")
-                row.extend([''] * 8)  # Добавляем пустые значения при ошибке
+                current_app.logger.error(f"Error processing result {result.id}: {str(e)}")
+                continue
         
-        writer.writerow(row)
-    
-    output.seek(0)
-    return Response(
-        output,
-        mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment;filename=results_{task_id}.csv'}
-    )
+        output.seek(0)
+        return Response(
+            output,
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment;filename=results_{task_id}.csv'}
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error exporting results: {str(e)}")
+        flash('Error exporting results', 'danger')
+        return redirect(url_for('main.task_results', task_id=task_id))
 
 @bp.route('/debug')
 def debug():

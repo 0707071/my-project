@@ -1,20 +1,5 @@
 {% extends "base.html" %}
 
-{% block head %}
-{{ super() }}
-<style>
-.field-row { 
-    border: 1px solid #ddd;
-    padding: 15px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-}
-.remove-field {
-    float: right;
-}
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-10">
@@ -26,16 +11,40 @@
                 <form method="POST" id="promptForm">
                     {{ form.hidden_tag() }}
                     
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            {% for field, errors in form.errors.items() %}
+                                <p><strong>{{ field }}:</strong> {{ ', '.join(errors) }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
                     <!-- Основные поля промпта -->
                     <div class="mb-4">
                         <h5>Prompt Settings</h5>
                         <div class="mb-3">
                             {{ form.content.label(class="form-label") }}
                             {{ form.content(class="form-control", rows=10) }}
+                            {% if form.content.errors %}
+                                {% for error in form.content.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                            <div class="form-text">Enter your prompt text with questions that should return a Python list</div>
                         </div>
                         <div class="mb-3">
                             {{ form.description.label(class="form-label") }}
                             {{ form.description(class="form-control", rows=3) }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.column_names.label(class="form-label") }}
+                            {{ form.column_names(class="form-control", rows=5) }}
+                            {% if form.column_names.errors %}
+                                {% for error in form.column_names.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                            <div class="form-text">{{ form.column_names.description }}</div>
                         </div>
                         <div class="mb-3">
                             <div class="form-check">
@@ -43,26 +52,6 @@
                                 {{ form.is_active.label(class="form-check-label") }}
                             </div>
                         </div>
-                    </div>
-                    
-                    <!-- Поля для колонок результатов -->
-                    <div class="mb-4">
-                        <h5>Result Fields</h5>
-                        <p class="text-muted">Add column names in the order they appear in the model's response</p>
-                        <div id="fields-container">
-                            {% for field_form in form.fields %}
-                            <div class="field-row">
-                                <button type="button" class="btn btn-sm btn-danger remove-field">Remove</button>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        {{ field_form.form.name.label(class="form-label") }}
-                                        {{ field_form.form.name(class="form-control", placeholder="Enter column name") }}
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <button type="button" class="btn btn-success" id="add-field">Add Field</button>
                     </div>
                     
                     {{ form.submit(class="btn btn-primary") }}
@@ -78,66 +67,17 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const container = document.getElementById('fields-container');
-    const addButton = document.getElementById('add-field');
-    const promptForm = document.getElementById('promptForm');
-    let fieldCount = {{ form.fields|length }};
+    const form = document.getElementById('promptForm');
     
-    // Шаблон для нового поля
-    const fieldTemplate = `
-        <div class="field-row">
-            <button type="button" class="btn btn-sm btn-danger remove-field">Remove</button>
-            <div class="row">
-                <div class="col-md-6">
-                    <label class="form-label">Column Name</label>
-                    <input type="text" name="fields-${fieldCount}-form-name" class="form-control" placeholder="Enter column name" required>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Добавление нового поля
-    addButton.addEventListener('click', function() {
-        container.insertAdjacentHTML('beforeend', fieldTemplate);
-        fieldCount++;
-    });
-    
-    // Удаление поля
-    container.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-field')) {
-            e.target.closest('.field-row').remove();
-            reorderFields();
-        }
-    });
-
-    // Обработка отправки формы
-    promptForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Переупорядочиваем поля
-        reorderFields();
-        
-        // Проверяем, что есть хотя бы одно поле
-        const fields = container.querySelectorAll('.field-row');
-        if (fields.length === 0) {
-            alert('Please add at least one field');
+    form.addEventListener('submit', function(e) {
+        // Проверяем, что есть хотя бы одно название колонки
+        const columnNames = form.querySelector('[name="column_names"]').value.trim();
+        if (!columnNames) {
+            e.preventDefault();
+            alert('Please add at least one column name');
             return;
         }
-        
-        // Отправляем форму
-        this.submit();
     });
-
-    // Функция для переупорядочивания полей
-    function reorderFields() {
-        const fields = container.querySelectorAll('.field-row');
-        fields.forEach((field, index) => {
-            const input = field.querySelector('input[name^="fields-"]');
-            if (input) {
-                input.name = `fields-${index}-name`;
-            }
-        });
-    }
 });
 </script>
 {% endblock %}

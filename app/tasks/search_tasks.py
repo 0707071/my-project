@@ -155,7 +155,7 @@ def run_search(self, task_id):
                         # Определяем заголовки
                         headers = ['title', 'url', 'published_date', 'domain', 'description', 'query', 'snippet']
                         
-                        # Если файл не существует, создаем с заголовками
+                        # Если файл не существует, создаем с заголовкм
                         if not os.path.exists(raw_results_file):
                             df.to_csv(raw_results_file, index=False, columns=headers)
                             send_task_log(task_id, f'Created new results file with {len(processed_articles)} articles')
@@ -237,45 +237,62 @@ def run_search(self, task_id):
             # Сохраняем результаты в БД и в файл
             if os.path.exists(analyzed_results_file):
                 results_df = pd.read_csv(analyzed_results_file)
+                saved_count = 0
+                error_count = 0
+                
                 for _, row in results_df.iterrows():
-                    # Парсим анализ из строки в список
                     try:
-                        analysis_list = eval(row['analysis'])
+                        # Проверяем, есть ли анализ и не пустой ли он
+                        analysis = row.get('analysis', '')
+                        if not analysis or analysis.strip() in ['', 'null', 'none', 'nan']:
+                            print(f"Skipping result with empty analysis: {row['url']}")
+                            error_count += 1
+                            continue
+                        
+                        # Создаем результат
                         result = SearchResult(
                             task_id=task_id,
                             url=row['url'],
                             title=row['title'],
                             content=row['description'],
-                            analysis=row['analysis'],
-                            published_date=row.get('published_date'),
-                            domain=row.get('domain'),
-                            snippet=row.get('snippet', ''),
-                            # Разбираем ответ LLM
-                            company_name=analysis_list[0],
-                            potential_score=analysis_list[1] if isinstance(analysis_list[1], int) else None,
-                            sales_notes=analysis_list[2],
-                            company_description=analysis_list[3],
-                            annual_revenue=float(analysis_list[4]) if analysis_list[4] != 'NA' else None,
-                            country=analysis_list[5],
-                            website=analysis_list[6] if analysis_list[6] != 'NA' else None,
-                            assumed_website=analysis_list[7] if analysis_list[7] != 'NA' else None
-                        )
-                    except Exception as e:
-                        print(f"Error parsing analysis: {str(e)}")
-                        result = SearchResult(
-                            task_id=task_id,
-                            url=row['url'],
-                            title=row['title'],
-                            content=row['description'],
-                            analysis=row['analysis'],
+                            analysis=analysis,
                             published_date=row.get('published_date'),
                             domain=row.get('domain'),
                             snippet=row.get('snippet', '')
                         )
-                    db.session.add(result)
+                        
+                        # Проверяем, что анализ можно распарсить
+                        parsed = result.parse_analysis()
+                        if all(v == 'NA' for v in parsed.values()):
+                            print(f"Skipping result with invalid analysis: {row['url']}")
+                            error_count += 1
+                            continue
+                        
+                        db.session.add(result)
+                        saved_count += 1
+                        
+                        # Периодически коммитим изменения
+                        if saved_count % 100 == 0:
+                            db.session.commit()
+                            send_task_log(task_id, f'Saved {saved_count} results so far')
+                        
+                    except Exception as e:
+                        error_count += 1
+                        print(f"Error saving result: {str(e)}")
+                        continue
                 
-                db.session.commit()
-                send_task_log(task_id, f'Saved {len(results_df)} results to database')
+                # Финальный коммит
+                try:
+                    db.session.commit()
+                    send_task_log(
+                        task_id, 
+                        f'Completed saving results. Saved: {saved_count}, Errors/Skipped: {error_count}'
+                    )
+                except Exception as e:
+                    db.session.rollback()
+                    error_message = f"Error in final commit: {str(e)}"
+                    send_task_log(task_id, error_message)
+                    raise ValueError(error_message)
             else:
                 raise ValueError("No analyzed results file found")
             

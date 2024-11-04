@@ -37,12 +37,16 @@ class SearchQueryForm(FlaskForm):
             # Если форма используется для редактирования, меняем текст кнопки
             self.submit.label.text = 'Update'
 
-class PromptFieldForm(FlaskForm):
-    name = StringField('Column Name', validators=[DataRequired()])
-
 class PromptForm(FlaskForm):
     content = TextAreaField('Prompt Text', validators=[DataRequired()])
     description = TextAreaField('Description')
     is_active = BooleanField('Active Version')
-    fields = FieldList(FormField(PromptFieldForm), min_entries=1)
+    column_names = TextAreaField('Column Names', 
+        description='Enter each column name on a new line in the same order as questions in the prompt',
+        validators=[DataRequired()])
     submit = SubmitField('Save')
+
+    def __init__(self, *args, **kwargs):
+        super(PromptForm, self).__init__(*args, **kwargs)
+        if kwargs.get('obj'):
+            self.submit.label.text = 'Update'

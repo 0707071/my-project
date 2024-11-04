@@ -6,6 +6,7 @@ class SearchTask(db.Model):
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
     search_query_id = db.Column(db.Integer, db.ForeignKey('search_query.id'), nullable=False)
     prompt_id = db.Column(db.Integer, db.ForeignKey('prompt.id'))
+    prompt = db.relationship('Prompt', backref='tasks')
     celery_task_id = db.Column(db.String(36), unique=True)
     status = db.Column(db.String(20), default='pending')  # pending, searching, cleaning, analyzing, completed, failed
     stage = db.Column(db.String(20), default='search')  # search, clean, analyze
