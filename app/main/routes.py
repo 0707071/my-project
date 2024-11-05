@@ -378,6 +378,7 @@ def debug():
     current_app.logger.info(f'Available routes: {routes}')  # Add routes logging
     return jsonify(routes)
 
+<<<<<<< HEAD
 @bp.route('/client/<int:id>/search/<int:query_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_search_query(id, query_id):
@@ -428,3 +429,9 @@ def delete_search_query(id, query_id):
     
     flash('Search query deleted', 'success')
     return redirect(url_for('main.client_detail', id=id))
+=======
+@bp.route('/parser')
+@login_required
+def parser():
+    return render_template('main/parser.html')  # Ensure this points to the correct template
+>>>>>>> 7897752 (The local changes)

@@ -4,6 +4,7 @@ from app.auth.forms import LoginForm, RegistrationForm
 from app.models.user import User
 from app import db
 from app.auth import bp
+from app.models.user import Role
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -33,17 +34,21 @@ def logout():
 @bp.route('/register', methods=['GET', 'POST'])
 @login_required
 def register():
-    if not current_user.is_admin:
-        flash('Access denied', 'danger')
-        return redirect(url_for('main.index'))
-    
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        user = User(username=form.username.data, email=form.email.data)
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
-        flash('User registered successfully', 'success')
-        return redirect(url_for('auth.login'))
-    
-    return render_template('auth/register.html', form=form)
+       form = RegistrationForm()
+       if form.validate_on_submit():
+           role_value = form.role.data.upper()  # Ensure the role is in uppercase
+           if role_value not in [role.value for role in Role]:
+               flash('Invalid role selected.', 'danger')
+               return redirect(url_for('auth.register'))
+
+           user = User(username=form.username.data, email=form.email.data, role=Role(role_value))
+           user.set_password(form.password.data)
+           db.session.add(user)
+           db.session.commit()
+           flash('Registration successful!', 'success')
+           return redirect(url_for('auth.login'))
+       return render_template('register.html', form=form)
+
+@bp.route('/parser')
+def parser():
+    return render_template('main/parser.html')

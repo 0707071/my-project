@@ -7,8 +7,13 @@ load_dotenv()
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard-to-guess-string'
     
+<<<<<<< HEAD
     # Database
     SQLALCHEMY_DATABASE_URI = 'postgresql://flask:Dr0w$$appostgres@localhost:5432/karhuno'
+=======
+    # Используем прямую строку подключения с новым паролем
+    SQLALCHEMY_DATABASE_URI = 'postgresql://app_user:your_secure_password@localhost:5432/karhuno'
+>>>>>>> 7897752 (The local changes)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Redis configuration

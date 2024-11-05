@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 2024-11-01 17:26:00,548 INFO: Main routes: ['/', '/clients', '/client/new', '/client/<int:id>', '/client/<int:id>/search', '/client/<int:id>/search/run', '/task/<int:task_id>', '/task/<int:task_id>/status', '/client/<int:id>/prompts', '/client/<int:id>/prompt/new', '/client/<int:id>/prompt/<int:prompt_id>/edit', '/client/<int:id>/prompt/<int:prompt_id>/activate', '/client/<int:id>/prompt/<int:prompt_id>/delete', '/prompt/<int:id>', '/task/<int:task_id>/results', '/task/<int:task_id>/export', '/debug', '/client/<int:id>/search/<int:query_id>/edit', '/client/<int:id>/search/<int:query_id>/delete'] [in /home/pol/dev/karhuno/app/__init__.py:68]
 2024-11-01 17:38:45,087 INFO: Accessing index page [in /home/pol/dev/karhuno/app/main/routes.py:18]
 2024-11-01 17:43:09,901 INFO: Karhuno startup [in /home/pol/dev/karhuno/app/__init__.py:35]
@@ -47,3 +48,117 @@
 2024-11-04 11:49:19,436 INFO: Karhuno startup [in /home/pol/dev/karhuno/app/__init__.py:35]
 2024-11-04 11:49:19,468 INFO: Registered auth blueprint [in /home/pol/dev/karhuno/app/__init__.py:62]
 2024-11-04 11:49:19,468 INFO: Auth routes: ['/auth/login', '/auth/logout', '/auth/register'] [in /home/pol/dev/karhuno/app/__init__.py:63]
+=======
+2024-11-04 16:39:20,845 ERROR: Exception on / [GET] [in /home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask/app.py:838]
+Traceback (most recent call last):
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py", line 1625, in _object_value_for_elem
+    return self._object_lookup[elem]
+           ~~~~~~~~~~~~~~~~~~~^^^^^^
+KeyError: 'client'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask/app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask/app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask/app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask/app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask_login/utils.py", line 284, in decorated_view
+    elif not current_user.is_authenticated:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/werkzeug/local.py", line 318, in __get__
+    obj = instance._get_current_object()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/werkzeug/local.py", line 526, in _get_current_object
+    return get_name(local())
+                    ^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask_login/utils.py", line 25, in <lambda>
+    current_user = LocalProxy(lambda: _get_user())
+                                      ^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask_login/utils.py", line 370, in _get_user
+    current_app.login_manager._load_user()
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/flask_login/login_manager.py", line 364, in _load_user
+    user = self._user_callback(user_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/app/models/user.py", line 29, in load_user
+    return User.query.get(int(id))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in get
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/util/deprecations.py", line 386, in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 1127, in get
+    return self._get_impl(ident, loading.load_on_pk_identity)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/orm/query.py", line 1136, in _get_impl
+    return self.session._get_impl(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 3873, in _get_impl
+    return db_load_fn(
+           ^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/orm/loading.py", line 705, in load_on_pk_identity
+    return result.one()
+           ^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/engine/result.py", line 1810, in one
+    return self._only_one_row(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/engine/result.py", line 749, in _only_one_row
+    row: Optional[_InterimRowType[Any]] = onerow(hard_close=True)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/engine/result.py", line 1673, in _fetchone_impl
+    return self._real_result._fetchone_impl(hard_close=hard_close)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/engine/result.py", line 2259, in _fetchone_impl
+    row = next(self.iterator, _NO_ROW)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/orm/loading.py", line 219, in chunks
+    fetch = cursor._raw_all_rows()
+            ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/engine/result.py", line 541, in _raw_all_rows
+    return [make_row(row) for row in rows]
+            ^^^^^^^^^^^^^
+  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 22, in sqlalchemy.cyextension.resultproxy.BaseRow.__init__
+  File "lib/sqlalchemy/cyextension/resultproxy.pyx", line 79, in sqlalchemy.cyextension.resultproxy._apply_processors
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py", line 1745, in process
+    value = self._object_value_for_elem(value)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kim/karhuno github pull/karhuno/venv/lib/python3.12/site-packages/sqlalchemy/sql/sqltypes.py", line 1627, in _object_value_for_elem
+    raise LookupError(
+LookupError: 'client' is not among the defined enum values. Enum name: role. Possible values: CLIENT, ANALYST
+2024-11-04 16:42:27,428 INFO: Karhuno startup [in /home/kim/karhuno github pull/karhuno/app/__init__.py:34]
+2024-11-04 16:42:27,481 INFO: Registered auth blueprint [in /home/kim/karhuno github pull/karhuno/app/__init__.py:49]
+2024-11-04 16:42:27,481 INFO: Auth routes: ['/auth/login', '/auth/logout', '/auth/register'] [in /home/kim/karhuno github pull/karhuno/app/__init__.py:50]
+2024-11-04 16:42:28,659 INFO: Registered main blueprint [in /home/kim/karhuno github pull/karhuno/app/__init__.py:54]
+2024-11-04 16:42:28,660 INFO: Main routes: ['/', '/clients', '/client/new', '/client/<int:id>', '/client/<int:id>/search', '/client/<int:id>/search/run', '/task/<int:task_id>', '/task/<int:task_id>/status', '/client/<int:id>/prompts', '/client/<int:id>/prompt/new', '/prompt/<int:id>', '/task/<int:task_id>/results', '/task/<int:task_id>/export', '/debug'] [in /home/kim/karhuno github pull/karhuno/app/__init__.py:55]
+2024-11-04 16:42:32,846 INFO: Accessing index page [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:18]
+2024-11-04 16:42:50,319 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-04 16:42:53,404 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-04 16:42:53,691 INFO: Accessing index page [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:18]
+2024-11-04 16:43:00,020 INFO: Accessing index page [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:18]
+2024-11-04 16:43:09,156 INFO: Accessing index page [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:18]
+2024-11-04 16:43:12,106 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-04 16:49:05,401 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-05 11:40:15,198 INFO: Karhuno startup [in /home/kim/karhuno github pull/karhuno/app/__init__.py:34]
+2024-11-05 11:40:15,241 INFO: Registered auth blueprint [in /home/kim/karhuno github pull/karhuno/app/__init__.py:49]
+2024-11-05 11:40:15,241 INFO: Auth routes: ['/auth/login', '/auth/logout', '/auth/register', '/auth/parser'] [in /home/kim/karhuno github pull/karhuno/app/__init__.py:50]
+2024-11-05 11:40:16,180 INFO: Registered main blueprint [in /home/kim/karhuno github pull/karhuno/app/__init__.py:54]
+2024-11-05 11:40:16,180 INFO: Main routes: ['/', '/clients', '/client/new', '/client/<int:id>', '/client/<int:id>/search', '/client/<int:id>/search/run', '/task/<int:task_id>', '/task/<int:task_id>/status', '/client/<int:id>/prompts', '/client/<int:id>/prompt/new', '/prompt/<int:id>', '/task/<int:task_id>/results', '/task/<int:task_id>/export', '/debug'] [in /home/kim/karhuno github pull/karhuno/app/__init__.py:55]
+2024-11-05 11:40:21,634 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-05 11:40:46,325 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-05 11:40:49,221 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-05 11:40:49,456 INFO: Accessing index page [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:18]
+2024-11-05 11:40:49,463 ERROR: Error rendering index page: Could not build url for endpoint 'parser'. Did you mean 'auth.parser' instead? [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:22]
+2024-11-05 11:47:29,304 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-05 11:47:29,316 INFO: Accessing index page [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:18]
+2024-11-05 11:47:29,318 ERROR: Error rendering index page: Could not build url for endpoint 'parser'. Did you mean 'auth.parser' instead? [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:22]
+2024-11-05 11:47:36,706 INFO: Accessing login page [in /home/kim/karhuno github pull/karhuno/app/auth/routes.py:11]
+2024-11-05 11:47:36,717 INFO: Accessing index page [in /home/kim/karhuno github pull/karhuno/app/main/routes.py:18]
+>>>>>>> 7897752 (The local changes)
