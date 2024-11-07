@@ -6,191 +6,82 @@
 {{ super() }}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <style>
-.progress { height: 20px; margin-bottom: 10px; }
-.progress-bar { transition: width 0.3s ease-in-out; }
-.logs-container {
-    height: 400px;
-    overflow-y: auto;
-    font-family: monospace;
-    font-size: 0.9rem;
-    background: #f8f9fa;
-    padding: 1rem;
-    border-radius: 4px;
-}
-.log-entry {
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #eee;
-}
-.log-entry .timestamp {
-    color: #666;
-    margin-right: 1rem;
-}
-.log-entry.search { color: #0dcaf0; }
-.log-entry.clean { color: #ffc107; }
-.log-entry.analyze { color: #198754; }
+    .progress { 
+        height: 20px; 
+        margin-bottom: 10px; 
+    }
+    .progress-bar { 
+        transition: width 0.3s ease-in-out; 
+    }
+    .logs-container {
+        height: 400px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 0.9rem;
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+    }
+    .log-entry {
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+    .log-entry .timestamp {
+        color: #666;
+        margin-right: 1rem;
+    }
+    .log-entry.search { color: #0dcaf0; }
+    .log-entry.clean { color: #ffc107; }
+    .log-entry.analyze { color: #198754; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-10">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="mb-0">Task Status</h4>
-            </div>
-            <div class="card-body">
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <h6>Status</h6>
-                        <span class="badge bg-{{ task.status | status_badge }}" id="task-status">
-                            {{ task.status | title }}
-                            {% if task.stage %}({{ task.stage }}){% endif %}
-                        </span>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>Created</h6>
-                        {{ task.created_at.strftime('%d.%m.%Y %H:%M:%S') }}
-                    </div>
-                    {% if task.completed_at %}
-                    <div class="col-md-4">
-                        <h6>Completed</h6>
-                        {{ task.completed_at.strftime('%d.%m.%Y %H:%M:%S') }}
-                    </div>
-                    {% endif %}
-                </div>
-
-                <div class="stages-progress mb-4">
-                    <h5>Progress</h5>
-                    <div class="stage mb-3">
-                        <label>Search</label>
-                        <div class="progress">
-                            <div class="progress-bar bg-info" id="search-progress" role="progressbar" 
-                                 style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                        </div>
-                    </div>
-                    <div class="stage mb-3">
-                        <label>Clean</label>
-                        <div class="progress">
-                            <div class="progress-bar bg-warning" id="clean-progress" role="progressbar" 
-                                 style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                        </div>
-                    </div>
-                    <div class="stage mb-3">
-                        <label>Analyze</label>
-                        <div class="progress">
-                            <div class="progress-bar bg-success" id="analysis-progress" role="progressbar" 
-                                 style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="execution-logs">
-                    <h5>Execution Logs</h5>
-                    <div id="task-logs" class="logs-container"></div>
-                </div>
-
-                {% if task.error_message %}
-                <div class="alert alert-danger mt-4">
-                    <h6>Error</h6>
-                    <div id="error-message">{{ task.error_message }}</div>
-                </div>
-                {% endif %}
-
-                {% if task.status == 'completed' %}
-                <div class="mt-4">
-                    <a href="{{ url_for('main.task_results', task_id=task.id) }}" class="btn btn-primary">View Results</a>
-                    <a href="{{ url_for('main.export_results', task_id=task.id) }}" class="btn btn-success">Export CSV</a>
-                </div>
-                {% endif %}
-            </div>
+<div class="container">
+    <h2>Task Progress</h2>
+    
+    <div class="progress mb-3">
+        <div class="progress-bar" role="progressbar" 
+             aria-valuenow="{{ task.progress }}"
+             aria-valuemin="0" 
+             aria-valuemax="100"
+             style="width: {{ task.progress }}%">
+            {{ task.progress }}%
         </div>
     </div>
+    
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Status: {{ task.status }}</h5>
+            <p class="card-text">Stage: {{ task.stage }}</p>
+            {% if task.error_message %}
+            <div class="alert alert-danger">{{ task.error_message }}</div>
+            {% endif %}
+        </div>
+    </div>
+    
+    {% if task.status == 'completed' %}
+    <a href="{{ url_for('main.task_results', task_id=task.id) }}" class="btn btn-primary">
+        View Results
+    </a>
+    {% else %}
+    <div class="alert alert-info">
+        Task is still running. This page will refresh automatically.
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const socket = io();
-    const taskId = {{ task.id }};
-    const logsContainer = document.getElementById('task-logs');
-    const searchProgress = document.getElementById('search-progress');
-    const cleanProgress = document.getElementById('clean-progress');
-    const analysisProgress = document.getElementById('analysis-progress');
-    const taskStatus = document.getElementById('task-status');
-
-    function updateProgress(stage, progress) {
-        let progressBar;
-        switch(stage) {
-            case 'search':
-                progressBar = searchProgress;
-                break;
-            case 'clean':
-                progressBar = cleanProgress;
-                break;
-            case 'analyze':
-                progressBar = analysisProgress;
-                break;
-            default:
-                return;
-        }
-        if (progressBar) {
-            progressBar.style.width = progress + '%';
-            progressBar.setAttribute('aria-valuenow', progress);
-            progressBar.textContent = progress + '%';
-        }
-    }
-
-    function addLogEntry(timestamp, message, stage) {
-        const entry = document.createElement('div');
-        entry.className = 'log-entry ' + (stage || '');
-        
-        const time = document.createElement('span');
-        time.className = 'timestamp';
-        time.textContent = timestamp;
-        
-        const text = document.createElement('span');
-        text.className = 'message';
-        text.textContent = message;
-        
-        entry.appendChild(time);
-        entry.appendChild(text);
-        logsContainer.appendChild(entry);
-        logsContainer.scrollTop = logsContainer.scrollHeight;
-    }
-
-    socket.on('connect', () => {
-        console.log('WebSocket connected');
-        socket.emit('join_task', { task_id: taskId });
-        addLogEntry(new Date().toLocaleTimeString(), 'Connected to task logs');
-    });
-
-    socket.on('task_log', (data) => {
-        console.log('Received log:', data);
-        addLogEntry(data.timestamp, data.message, data.stage);
-        if (data.stage && data.progress !== null) {
-            updateProgress(data.stage, data.progress);
-        }
-    });
-
-    // Периодическая проверка статуса
-    function checkStatus() {
-        fetch(`/task/${taskId}/status`)
-            .then(response => response.json())
-            .then(data => {
-                if (!['completed', 'failed'].includes(data.status)) {
-                    setTimeout(checkStatus, 2000);
-                } else {
-                    window.location.reload();
-                }
-            })
-            .catch(error => console.error('Error:', error));
-    }
-
-    if (!['completed', 'failed'].includes('{{ task.status }}')) {
-        checkStatus();
-    }
-});
+    (function() {
+        {% if task.status not in ['completed', 'failed'] %}
+        // Обновляем страницу каждые 5 секунд если задача не завершена
+        setTimeout(function() {
+            window.location.reload();
+        }, 5000);
+        {% endif %}
+    })();
 </script>
 {% endblock %}

@@ -1,30 +1,34 @@
 import os
-from datetime import timedelta
 from dotenv import load_dotenv
 
-load_dotenv()
+basedir = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(basedir, '.env'))
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard-to-guess-string'
-    
-<<<<<<< HEAD
-    # Database
-    SQLALCHEMY_DATABASE_URI = 'postgresql://flask:Dr0w$$appostgres@localhost:5432/karhuno'
-=======
-    # Используем прямую строку подключения с новым паролем
-    SQLALCHEMY_DATABASE_URI = 'postgresql://app_user:your_secure_password@localhost:5432/karhuno'
->>>>>>> 7897752 (The local changes)
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+        'sqlite:///' + os.path.join(basedir, 'app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # Redis configuration
+    # Redis
     REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
     
-    # Celery configuration
-    CELERY_BROKER_URL = REDIS_URL
-    CELERY_RESULT_BACKEND = REDIS_URL
+    # API Keys
+    OPENAI_API_KEYS = os.environ.get('OPENAI_API_KEYS')
+    APOLLO_API_KEY = os.environ.get('APOLLO_API_KEY')
     
-    # Session configuration
-    PERMANENT_SESSION_LIFETIME = timedelta(days=1)
+    # XML Stock
+    XMLSTOCK_USER = os.environ.get('XMLSTOCK_USER')
+    XMLSTOCK_KEY = os.environ.get('XMLSTOCK_KEY')
+    
+    # Настройки пула соединений SQLAlchemy
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 10,  # Увеличиваем размер пула
+        'max_overflow': 20,  # Увеличиваем максимальное количество дополнительных соединений
+        'pool_timeout': 60,  # Увеличиваем таймаут
+        'pool_recycle': 3600,  # Переиспользуем соединения каждый час
+        'pool_pre_ping': True  # Проверяем соединения перед использованием
+    }
 
 class DevelopmentConfig(Config):
     DEVELOPMENT = True

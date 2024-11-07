@@ -1,14 +1,60 @@
-flask==2.3.3
-flask-sqlalchemy==3.1.1
-flask-login==0.6.2
-flask-migrate==4.0.5
-flask-socketio==5.3.6
-celery==5.3.4
-redis==5.0.1
+# Base tools
+setuptools==59.6.0
+wheel==0.44.0
+pip==24.3.1
+
+# Flask and extensions
+Flask==2.0.1
+Werkzeug==2.0.3
+Flask-SQLAlchemy==2.5.1
+Flask-Migrate==3.1.0
+Flask-Login==0.5.0
+Flask-WTF==0.15.1
+Flask-RESTful==0.3.9
+Flask-SocketIO==5.1.1
+python-socketio==5.5.0
+python-engineio==4.3.0
+
+# Database
+SQLAlchemy==1.4.23
+psycopg2-binary==2.9.9
+alembic==1.14.0
+
+# Celery and Redis
+celery==5.2.3
+redis==4.1.0
+kombu==5.4.2
+billiard==3.6.4.0
+amqp==5.2.0
+
+# Data processing
+numpy==1.24.3
+pandas==2.2.2
+lxml==5.2.1
+PyYAML==6.0.2
+
+# HTTP and APIs
+aiohttp==3.10.5
+requests==2.31.0
+urllib3==2.2.3
+httplib2==0.22.0
+
+# Google API
+google-api-core==2.20.0
+google-api-python-client==2.146.0
+google-auth==2.35.0
+google-auth-httplib2==0.2.0
+google-generativeai==0.8.1
+googleapis-common-protos==1.65.0
+
+# Text processing
+nltk==3.8.1
 newspaper3k==0.2.8
-pandas==2.1.1
-fuzzywuzzy==0.18.0
-python-Levenshtein==0.21.1
-aiohttp==3.8.5
-google-generativeai==0.2.0
-python-dotenv==1.0.0
+beautifulsoup4==4.12.3
+Levenshtein==0.25.1
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.9.2
+tqdm==4.66.2
+tenacity==8.2.3

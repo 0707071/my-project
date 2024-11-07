@@ -9,26 +9,14 @@ class ClientForm(FlaskForm):
     submit = SubmitField('Save')
 
 class SearchQueryForm(FlaskForm):
-    main_phrases = TextAreaField('Main Phrases', 
-        validators=[DataRequired()],
-        description='Enter each phrase on a new line')
-    include_words = TextAreaField('Include Words',
-        description='Words to include, each on a new line')
-    exclude_words = TextAreaField('Exclude Words',
-        description='Words to exclude, each on a new line')
+    main_phrases = TextAreaField('Search Phrases', validators=[DataRequired()])
+    include_words = TextAreaField('Include Words')
+    exclude_words = TextAreaField('Exclude Words')
     notes = TextAreaField('Notes')
-    is_active = BooleanField('Active Version')
-    
-    days_back = IntegerField('Days to Look Back', 
-        validators=[NumberRange(min=1, max=365)],
-        default=7)
-    results_per_page = IntegerField('Results per Page',
-        validators=[NumberRange(min=10, max=100)],
-        default=100)
-    num_pages = IntegerField('Number of Pages',
-        validators=[NumberRange(min=1, max=10)],
-        default=2)
-    
+    days_back = IntegerField('Days Back', default=7)
+    results_per_page = IntegerField('Results Per Page', default=10)
+    num_pages = IntegerField('Number of Pages', default=1)
+    is_active = BooleanField('Active')
     submit = SubmitField('Save')
     
     def __init__(self, *args, **kwargs):

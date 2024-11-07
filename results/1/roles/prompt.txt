@@ -61,8 +61,8 @@ After analysis, provide your response ONLY as a Python list with 8 elements:
  "Brief company description in English",  # String
  Estimated annual revenue in $ millions,  # Float
  "Country of headquarters location",  # String
- "Company website",  # String
- "Assumed website if not directly available"]  # String
+ "Company website",]  # String
+
 
 If any element of the list cannot be determined, fill that position with NA.
 

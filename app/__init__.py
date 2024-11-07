@@ -67,6 +67,10 @@ def create_app():
     app.logger.info('Registered main blueprint')
     app.logger.info(f'Main routes: {[rule.rule for rule in app.url_map.iter_rules() if rule.endpoint.startswith("main")]}')
 
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db.session.remove()
+
     return app
 
 # Import models here to avoid circular imports

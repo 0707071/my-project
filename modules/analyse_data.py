@@ -40,73 +40,64 @@ class RateLimiter:
             sleep_time = (1 - self.tokens) / (self.max_rate / self.period)
             await asyncio.sleep(sleep_time)
 
-async def analyse_data(input_filename, output_filename, roles_dir, parser_config):
-    """
-    Асинхронно анализирует данные с помощью LLM.
-    """
-    # Загружаем промпт
-    prompt_file = os.path.join(roles_dir, 'prompt.txt')
-    if not os.path.exists(prompt_file):
-        raise ValueError(f"Prompt file not found: {prompt_file}")
-    
-    with open(prompt_file, 'r') as f:
-        prompt_content = f.read()
-        print(f"Using prompt:\n{prompt_content[:200]}...")
-    
-    # Загружаем данные
-    df = pd.read_csv(input_filename)
-    print(f"Loaded {len(df)} articles for analysis")
-    
-    # Получаем LLM клиент
-    llm_client = get_llm_client('openai', parser_config)
-    
-    # Анализируем каждую статью
-    for index, row in df.iterrows():
-        try:
-            # Подготавливаем текст для анализа
-            article_text = f"Title: {row['title']}\n\nContent: {row['description']}"
-            
-            # Формируем сообщения для LLM
-            messages = [
-                {"role": "system", "content": prompt_content},
-                {"role": "user", "content": article_text}
-            ]
-            
-            # Получаем ответ от LLM
-            response = await llm_client.get_completion(messages)
-            print(f"Got analysis for article {index + 1}/{len(df)}")
-            print(f"Analysis: {response[:200]}...")
-            
-            # Сохраняем анализ
-            df.at[index, 'analysis'] = response
-            
-            # Периодически сохраняем результаты
-            if (index + 1) % 10 == 0:
-                df.to_csv(output_filename, index=False)
-                print(f"Saved progress: {index + 1} articles analyzed")
+async def analyse_data(input_filename, output_filename, prompt_content, parser_config):
+    """Асинхронно анализирует данные с помощью LLM."""
+    try:
+        # Загружаем данные
+        df = pd.read_csv(input_filename)
+        if df.empty:
+            logging.warning("No data to analyze")
+            return
         
-        except Exception as e:
-            print(f"Error analyzing article {index + 1}: {str(e)}")
-            df.at[index, 'analysis'] = f"Error: {str(e)}"
-    
-    # Сохраняем финальные результаты
-    df.to_csv(output_filename, index=False)
-    print("Analysis completed and saved")
+        # Получаем LLM клиент
+        llm_client = get_llm_client(
+            model_name=parser_config.get('model', 'gpt-4o-mini'),
+            config=parser_config
+        )
+        
+        # Анализируем каждую статью
+        for index, row in df.iterrows():
+            try:
+                if pd.isna(row['description']) or len(str(row['description'])) < 100:
+                    df.at[index, 'analysis'] = "Error: Invalid content"
+                    continue
 
-def run_analyse_data(input_filename, output_filename, roles_dir, parser_config):
-    """
-    Function to start data analysis. It runs the analysis in an asynchronous loop.
+                article_text = f"Title: {row['title']}\n\nContent: {row['description']}"
+                messages = [
+                    {"role": "system", "content": prompt_content},
+                    {"role": "user", "content": article_text}
+                ]
+                
+                try:
+                    response = await asyncio.wait_for(
+                        llm_client.get_completion(messages),
+                        timeout=60
+                    )
+                    df.at[index, 'analysis'] = response
+                    logging.info(f"Analyzed article {index + 1}")
+                except asyncio.TimeoutError:
+                    df.at[index, 'analysis'] = "Error: Analysis timeout"
+                    logging.warning(f"Timeout analyzing article {index + 1}")
+                
+                # Сохраняем каждые 3 статьи
+                if (index + 1) % 3 == 0:
+                    df.to_csv(output_filename, index=False)
+            
+            except Exception as e:
+                logging.error(f"Error analyzing article {index}: {str(e)}")
+                df.at[index, 'analysis'] = f"Error: {str(e)}"
+                df.to_csv(output_filename, index=False)
+        
+        # Финальное сохранение
+        df.to_csv(output_filename, index=False)
+        
+    except Exception as e:
+        logging.error(f"Critical error in analysis: {str(e)}")
+        raise
 
-    Args:
-        input_filename (str): Path to the input CSV file.
-        output_filename (str): Path to the output CSV file to save the results.
-        roles_dir (str): Directory containing role description files.
-        parser_config (dict): Configuration settings for the parser.
-
-    Returns:
-        None
-    """
+def run_analyse_data(input_filename, output_filename, prompt_content, parser_config):
+    """Запускает анализ данных."""
     if not asyncio.get_event_loop().is_running():
-        asyncio.run(analyse_data(input_filename, output_filename, roles_dir, parser_config))
+        asyncio.run(analyse_data(input_filename, output_filename, prompt_content, parser_config))
     else:
-        return analyse_data(input_filename, output_filename, roles_dir, parser_config)
+        return analyse_data(input_filename, output_filename, prompt_content, parser_config)

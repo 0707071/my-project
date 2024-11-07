@@ -7,14 +7,38 @@ import aiohttp
 import pandas as pd
 import time
 import xml.etree.ElementTree as ET
-from newspaper import Article
-from modules.date_utils import parse_date
+from newspaper import Article, ArticleException
+from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from typing import List, Dict, Optional, Any
+import logging
+from urllib.parse import urlparse
+
+# Загружаем переменные окружения из .env файла
+basedir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+env_path = os.path.join(basedir, '.env')
+
+print(f"DEBUG: Looking for .env at: {env_path}")
+print(f"DEBUG: File exists: {os.path.exists(env_path)}")
+
+# Принудительно перезагружаем .env
+load_dotenv(env_path, override=True)
 
 # Получаем данные для авторизации из переменных окружения
 XMLSTOCK_USER = os.getenv("XMLSTOCK_USER")
 XMLSTOCK_KEY = os.getenv("XMLSTOCK_KEY")
 XMLSTOCK_URL = "https://xmlstock.com/google/xml/"
+
+print(f"DEBUG: Environment variables:")
+print(f"XMLSTOCK_USER: {XMLSTOCK_USER}")
+print(f"XMLSTOCK_KEY: {XMLSTOCK_KEY}")
+print(f"Key length: {len(XMLSTOCK_KEY) if XMLSTOCK_KEY else 'None'}")
+
+# Добавим отладочный вывод
+print(f"DEBUG: Loading XML Stock credentials from {basedir}/.env")
+print(f"User: {XMLSTOCK_USER}")
+print(f"Key: {XMLSTOCK_KEY}")
 
 # Семафор для ограничения количества одновременных запросов
 MAX_CONCURRENT_REQUESTS = 10
@@ -122,83 +146,126 @@ async def fetch_xmlstock_search_results(query, include, exclude, config, verbose
     return results[:max_results]
 
 
-async def fetch_and_parse(url, verbose=False, proxy=None, timeout=240):
-    """
-    Асинхронно получает и парсит статью по указанному URL.
-    """
+async def fetch_and_parse(url: str, max_retries: int = 3) -> Optional[Dict[str, Any]]:
+    """Fetches and parses an article with retries and better error handling"""
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
     }
-    print(f"\nFetching article: {url}")
-    
-    async with semaphore:
+
+    for attempt in range(max_retries):
         try:
-            # Увеличиваем количество попыток подключения
-            for attempt in range(3):
-                try:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(url, headers=headers, proxy=proxy, timeout=timeout) as response:
-                            print(f"Response status: {response.status}")
-                            # Проверяем Content-Type
-                            content_type = response.headers.get('Content-Type', '').lower()
-                            if 'pdf' in content_type or 'application/octet-stream' in content_type:
-                                print(f"Skipping PDF or binary content: {url}")
-                                return None
-                            
-                            if response.status != 200:
-                                raise aiohttp.ClientResponseError(response.request_info, response.history, status=response.status)
-                            
-                            html_content = await response.text()
-                            print(f"Received HTML content length: {len(html_content)}")
-                            
-                            if len(html_content) < 1000:  # Проверяем минимальный размер контента
-                                print(f"Content too short, skipping: {len(html_content)} bytes")
-                                return None
-                            
-                            article = Article(url)
-                            article.set_html(html_content)
-                            article.parse()
-                            
-                            text = article.text
-                            if len(text) < 200:  # Проверяем минимальную длину текста
-                                print(f"Parsed text too short, skipping: {len(text)} chars")
-                                return None
-                            
-                            print(f"Parsed article title: {article.title}")
-                            print(f"Parsed article text (first 200 chars): {text[:200]}...")
-                            print(f"Total text length: {len(text)}")
-                            
-                            return {
-                                'title': article.title,
-                                'authors': article.authors,
-                                'text': text,
-                                'article_url': url
-                            }
-                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                    print(f"Attempt {attempt + 1} failed: {str(e)}")
-                    if attempt == 2:  # Последняя попытка
-                        raise
-                    await asyncio.sleep(2 ** attempt)  # Экспоненциальная задержка между попытками
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=30) as response:
+                    if response.status == 403:
+                        logging.warning(f"Access denied (403) for {url}")
+                        # Пробуем через другой User-Agent
+                        headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                        continue
                     
+                    if response.status != 200:
+                        logging.warning(f"Failed to fetch {url}, status: {response.status}")
+                        if attempt == max_retries - 1:
+                            return None
+                        continue
+
+                    html = await response.text()
+                    
+                    # Пробуем разные методы извлечения текста
+                    text = None
+                    
+                    # 1. Newspaper3k
+                    try:
+                        article = Article('')
+                        article.download_state = 2
+                        article.html = html
+                        article.parse()
+                        text = article.text
+                    except Exception as e:
+                        logging.warning(f"Newspaper3k failed: {str(e)}")
+                    
+                    # 2. BeautifulSoup если newspaper не сработал
+                    if not text or len(text.strip()) < 100:
+                        try:
+                            soup = BeautifulSoup(html, 'html.parser')
+                            for tag in soup(['script', 'style', 'meta', 'noscript', 'header', 'footer', 'nav']):
+                                tag.decompose()
+                            
+                            # Ищем основной контент
+                            main_content = soup.find(['article', 'main', 'div'], class_=lambda x: x and any(word in str(x).lower() for word in ['content', 'article', 'main', 'body']))
+                            if main_content:
+                                text = ' '.join(main_content.stripped_strings)
+                            else:
+                                text = ' '.join(soup.stripped_strings)
+                        except Exception as e:
+                            logging.warning(f"BeautifulSoup failed: {str(e)}")
+                    
+                    if text and len(text.strip()) > 100:
+                        return {
+                            'text': text.strip(),
+                            'html': html,
+                            'title': article.title if 'article' in locals() else None
+                        }
+                    else:
+                        logging.warning(f"No valid text found in {url}")
+
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logging.warning(f"Attempt {attempt + 1} failed: {str(e)}, url='{url}'")
+            if attempt == max_retries - 1:
+                return None
+            await asyncio.sleep(1 * (attempt + 1))
         except Exception as e:
-            print(f"Error fetching or parsing article: {url}")
-            print(f"Error details: {str(e)}")
-            print(f"Full error: {repr(e)}")
-            return None
-        finally:
-            await asyncio.sleep(REQUEST_DELAY)
+            logging.error(f"Unexpected error fetching {url}: {str(e)}")
+            if attempt == max_retries - 1:
+                return None
+            await asyncio.sleep(1 * (attempt + 1))
+
+    return None
 
 
-async def process_search_results(search_results, verbose=False, proxy=None):
-    """
-    Асинхронно обрабатывает результаты поиска, получая и парся статьи.
-    """
+async def process_search_results(search_results: List[Dict]) -> List[Optional[Dict]]:
+    """Process search results with improved error handling"""
+    if not search_results:
+        logging.warning("No search results to process")
+        return []
+
     tasks = []
-    for result in search_results:
-        task = asyncio.create_task(fetch_and_parse(result['link'], verbose, proxy))
-        tasks.append(task)
+    results = []
     
-    return await asyncio.gather(*tasks)
+    # Создаем пул задач
+    for result in search_results:
+        if 'link' in result and result['link']:
+            task = asyncio.create_task(fetch_and_parse(result['link']))
+            tasks.append((result, task))
+    
+    if not tasks:
+        logging.warning("No valid URLs to process")
+        return []
+
+    # Обрабатываем результаты по мере их готовности
+    for search_result, task in tasks:
+        try:
+            article = await task
+            if article and article.get('text'):
+                processed_article = {
+                    'title': search_result.get('title', ''),
+                    'link': search_result.get('link', ''),
+                    'pubDate': search_result.get('pubDate', ''),
+                    'description': article.get('text', '')[:5000],  # Ограничиваем длину текста
+                    'domain': urlparse(search_result.get('link', '')).netloc,
+                    'snippet': search_result.get('snippet', '')
+                }
+                results.append(processed_article)
+            else:
+                logging.warning(f"No valid content for {search_result.get('link')}")
+        except Exception as e:
+            logging.error(f"Error processing {search_result.get('link')}: {str(e)}")
+            continue
+    
+    return results
 
 
 async def fetch_and_save_articles(query, include, exclude, config, output_filename, verbose=False, proxy=None):
@@ -264,3 +331,32 @@ def save_results_to_csv(results, output_filename, verbose=False):
     else:
         if verbose:
             print("No articles were extracted.")
+
+
+def extract_text(html: str) -> str:
+    """Извлекает текст из HTML используя newspaper3k и BeautifulSoup как запасной вариант"""
+    try:
+        # Пробуем newspaper3k
+        article = Article('')
+        article.download_state = 2  # Пропускаем скачивание
+        article.html = html
+        article.parse()
+        text = article.text
+        
+        if text and len(text.strip()) > 100:
+            return text.strip()
+    except (ArticleException, Exception) as e:
+        logging.warning(f"newspaper3k extraction failed: {str(e)}")
+    
+    try:
+        # Пробуем BeautifulSoup как запасной вариант
+        soup = BeautifulSoup(html, 'html.parser')
+        # Удаляем скрипты, стили и другой мусор
+        for tag in soup(['script', 'style', 'meta', 'noscript']):
+            tag.decompose()
+        
+        text = ' '.join(soup.stripped_strings)
+        return text.strip()
+    except Exception as e:
+        logging.error(f"BeautifulSoup extraction failed: {str(e)}")
+        return ""
