@@ -39,49 +39,113 @@
 
 {% block content %}
 <div class="container">
-    <h2>Task Progress</h2>
+    <h2>Task Status</h2>
     
-    <div class="progress mb-3">
-        <div class="progress-bar" role="progressbar" 
-             aria-valuenow="{{ task.progress }}"
-             aria-valuemin="0" 
-             aria-valuemax="100"
-             style="width: {{ task.progress }}%">
-            {{ task.progress }}%
-        </div>
-    </div>
-    
-    <div class="card mb-3">
+    <div class="card mb-4">
         <div class="card-body">
-            <h5 class="card-title">Status: {{ task.status }}</h5>
-            <p class="card-text">Stage: {{ task.stage }}</p>
-            {% if task.error_message %}
-            <div class="alert alert-danger">{{ task.error_message }}</div>
-            {% endif %}
+            <h5 class="card-title">Progress</h5>
+            <div class="progress mb-3">
+                <div class="progress-bar" role="progressbar" style="width: {{ task.progress }}%;" 
+                     id="totalProgress">{{ task.progress }}%</div>
+            </div>
+            
+            <!-- Этапы с отдельными прогресс-барами -->
+            <div class="stages">
+                <div class="stage mb-2">
+                    <label>Search</label>
+                    <div class="progress">
+                        <div class="progress-bar bg-info" role="progressbar" id="searchProgress"></div>
+                    </div>
+                </div>
+                <div class="stage mb-2">
+                    <label>Clean</label>
+                    <div class="progress">
+                        <div class="progress-bar bg-info" role="progressbar" id="cleanProgress"></div>
+                    </div>
+                </div>
+                <div class="stage mb-2">
+                    <label>Analyze</label>
+                    <div class="progress">
+                        <div class="progress-bar bg-info" role="progressbar" id="analyzeProgress"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    
-    {% if task.status == 'completed' %}
-    <a href="{{ url_for('main.task_results', task_id=task.id) }}" class="btn btn-primary">
-        View Results
-    </a>
-    {% else %}
-    <div class="alert alert-info">
-        Task is still running. This page will refresh automatically.
+
+    <!-- Логи -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Logs</h5>
+            <div class="logs-container" style="max-height: 400px; overflow-y: auto;">
+                <div id="logs" class="bg-light p-3" style="font-family: monospace; font-size: 0.9em;"></div>
+            </div>
+        </div>
     </div>
-    {% endif %}
+
+    <!-- Кнопки действий -->
+    <div class="mt-4">
+        {% if task.status == 'completed' %}
+            <a href="{{ url_for('main.task_results', task_id=task.id) }}" 
+               class="btn btn-success">View Results</a>
+        {% endif %}
+        <a href="{{ url_for('main.client_detail', id=task.client_id) }}" 
+           class="btn btn-secondary">Back to Client</a>
+    </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
-    (function() {
-        {% if task.status not in ['completed', 'failed'] %}
-        // Обновляем страницу каждые 5 секунд если задача не завершена
-        setTimeout(function() {
-            window.location.reload();
-        }, 5000);
-        {% endif %}
-    })();
+document.addEventListener('DOMContentLoaded', function() {
+    const socket = io();
+    const taskId = {{ task.id }};
+    const logsContainer = document.getElementById('logs');
+    
+    socket.on('connect', function() {
+        console.log('Connected to WebSocket');
+        socket.emit('join', {task_id: taskId});
+    });
+
+    socket.on('task_update', function(data) {
+        // Обновляем общий прогресс
+        if (data.progress) {
+            document.getElementById('totalProgress').style.width = data.progress + '%';
+            document.getElementById('totalProgress').textContent = data.progress + '%';
+        }
+        
+        // Обновляем прогресс этапа
+        if (data.stage && data.stage_progress) {
+            document.getElementById(data.stage + 'Progress').style.width = data.stage_progress + '%';
+        }
+        
+        // Добавляем лог
+        if (data.message) {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry ' + (data.stage || '');
+            
+            const timestamp = document.createElement('span');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString();
+            
+            const message = document.createElement('span');
+            message.textContent = data.message;
+            
+            logEntry.appendChild(timestamp);
+            logEntry.appendChild(message);
+            logsContainer.appendChild(logEntry);
+            
+            // Прокручиваем к последнему сообщению
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+        
+        // Если задача завершена, обновляем страницу
+        if (data.status === 'completed') {
+            location.reload();
+        }
+    });
+});
 </script>
 {% endblock %}

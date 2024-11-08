@@ -11,16 +11,14 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     Очищает данные от дубликатов и некачественного контента
     """
     try:
-        # Создаем копию для безопасности
-        df_clean = df.copy()
+        initial_rows = len(df)
         
-        # Удаляем пустые строки и слишком короткие тексты
-        df_clean = df_clean.dropna(subset=['description'])
-        df_clean = df_clean[df_clean['description'].str.len() > 100]
+        # Удаление дубликатов
+        df_clean = df.drop_duplicates(subset=['link'])
+        print(f"Removed {initial_rows - len(df_clean)} duplicate URLs")
         
-        # Удаляем точные дубликаты URL и текста
-        df_clean = df_clean.drop_duplicates(subset=['link'])
         df_clean = df_clean.drop_duplicates(subset=['description'])
+        print(f"Removed {len(df) - len(df_clean)} duplicate contents")
         
         # Более мягкая фильтрация подозрительного контента
         suspicious_patterns = [

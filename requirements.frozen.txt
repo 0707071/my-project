@@ -105,3 +105,4 @@ wrapt==1.16.0
 WTForms==3.2.1
 yarl==1.12.1
 tenacity==8.2.3 
+eventlet==0.33.3

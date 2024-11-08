@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Task Results</h2>
+    
+    <!-- Фильтры -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form id="filterForm" class="row g-3">
+                <div class="col-md-3">
+                    <label>Start Date</label>
+                    <input type="date" class="form-control" name="start_date">
+                </div>
+                <div class="col-md-3">
+                    <label>End Date</label>
+                    <input type="date" class="form-control" name="end_date">
+                </div>
+                <div class="col-md-3">
+                    <label>Min Potential</label>
+                    <select class="form-control" name="min_potential">
+                        <option value="0">All</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4 only</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">Apply</button>
+                    <a href="{{ url_for('task_results', task_id=task.id) }}" class="btn btn-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Кнопки экспорта -->
+    <div class="mb-3">
+        <a href="{{ url_for('export_results', task_id=task.id) }}" class="btn btn-success">Export Latest</a>
+        <button onclick="exportFiltered()" class="btn btn-info">Export Filtered</button>
+    </div>
+    
+    <!-- Таблица результатов -->
+    <table id="resultsTable" class="table table-striped">
+        <thead>
+            <tr>
+                <th>Company</th>
+                <th>Potential</th>
+                <th>Country</th>
+                <th>Revenue</th>
+                <th>Website</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{ result.company_name }}</td>
+                <td>{{ result.potential }}</td>
+                <td>{{ result.country }}</td>
+                <td>{{ result.revenue }}</td>
+                <td>{{ result.website }}</td>
+                <td>{{ result.article_date }}</td>
+                <td>
+                    <button onclick="showDetails({{ loop.index }})" class="btn btn-sm btn-info">Details</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Модальное окно с деталями -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Company Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Детали будут добавлены через JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
+
+<script>
+$(document).ready(function() {
+    // Инициализация DataTables
+    $('#resultsTable').DataTable({
+        pageLength: 25,
+        order: [[1, 'desc']], // Сортировка по потенциалу
+    });
+    
+    // Обработка формы фильтров
+    $('#filterForm').on('submit', function(e) {
+        e.preventDefault();
+        window.location.href = '{{ url_for("task_results", task_id=task.id) }}?' + $(this).serialize();
+    });
+});
+
+function showDetails(index) {
+    const result = {{ results|tojson|safe }}[index - 1];
+    const modalBody = $('.modal-body');
+    modalBody.html(`
+        <dl class="row">
+            <dt class="col-sm-3">Company Name</dt>
+            <dd class="col-sm-9">${result.company_name}</dd>
+            
+            <dt class="col-sm-3">Description</dt>
+            <dd class="col-sm-9">${result.company_description}</dd>
+            
+            <dt class="col-sm-3">Sales Notes</dt>
+            <dd class="col-sm-9">${result.sales_notes}</dd>
+            
+            <dt class="col-sm-3">Revenue</dt>
+            <dd class="col-sm-9">$${result.revenue}M</dd>
+        </dl>
+    `);
+    $('#detailsModal').modal('show');
+}
+
+function exportFiltered() {
+    const params = new URLSearchParams(window.location.search);
+    window.location.href = '{{ url_for("export_results", task_id=task.id) }}?' + params.toString();
+}
+</script>
+{% endblock %} 

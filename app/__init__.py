@@ -8,6 +8,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from app.websockets import socketio, init_websockets
+from flask_socketio import SocketIO
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -44,17 +45,8 @@ def create_app():
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
     
-    @app.template_filter('status_badge')
-    def status_badge(status):
-        return {
-            'completed': 'success',
-            'running': 'warning',
-            'failed': 'danger',
-            'pending': 'secondary'
-        }.get(status, 'secondary')
-    
-    # Initialize WebSocket before registering blueprints
-    init_websockets(app)
+    # Initialize WebSocket
+    socketio.init_app(app)
     
     # Register blueprints
     from app.auth import bp as auth_bp
