@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from typing import List, Dict, Optional, Any
 import logging
 from urllib.parse import urlparse
+import hashlib
 
 # Загружаем переменные окружения из .env файла
 basedir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -147,13 +148,12 @@ async def fetch_xmlstock_search_results(query, include, exclude, config, verbose
 
 
 async def fetch_and_parse(url: str, max_retries: int = 3) -> Optional[Dict[str, Any]]:
-    """Fetches and parses an article with retries and better error handling"""
+    """Fetches and parses an article with retries"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
+        'Connection': 'keep-alive'
     }
 
     for attempt in range(max_retries):
@@ -162,9 +162,7 @@ async def fetch_and_parse(url: str, max_retries: int = 3) -> Optional[Dict[str, 
                 async with session.get(url, headers=headers, timeout=30) as response:
                     if response.status == 403:
                         logging.warning(f"Access denied (403) for {url}")
-                        # Пробуем через другой User-Agent
-                        headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                        continue
+                        return None
                     
                     if response.status != 200:
                         logging.warning(f"Failed to fetch {url}, status: {response.status}")
@@ -174,51 +172,22 @@ async def fetch_and_parse(url: str, max_retries: int = 3) -> Optional[Dict[str, 
 
                     html = await response.text()
                     
-                    # Пробуем разные методы извлечения текста
-                    text = None
+                    # Используем простой подход с newspaper3k
+                    article = Article(url)
+                    article.set_html(html)
+                    article.parse()
                     
-                    # 1. Newspaper3k
-                    try:
-                        article = Article('')
-                        article.download_state = 2
-                        article.html = html
-                        article.parse()
-                        text = article.text
-                    except Exception as e:
-                        logging.warning(f"Newspaper3k failed: {str(e)}")
-                    
-                    # 2. BeautifulSoup если newspaper не сработал
-                    if not text or len(text.strip()) < 100:
-                        try:
-                            soup = BeautifulSoup(html, 'html.parser')
-                            for tag in soup(['script', 'style', 'meta', 'noscript', 'header', 'footer', 'nav']):
-                                tag.decompose()
-                            
-                            # Ищем основной контент
-                            main_content = soup.find(['article', 'main', 'div'], class_=lambda x: x and any(word in str(x).lower() for word in ['content', 'article', 'main', 'body']))
-                            if main_content:
-                                text = ' '.join(main_content.stripped_strings)
-                            else:
-                                text = ' '.join(soup.stripped_strings)
-                        except Exception as e:
-                            logging.warning(f"BeautifulSoup failed: {str(e)}")
-                    
-                    if text and len(text.strip()) > 100:
+                    if article.text and len(article.text.strip()) > 100:
                         return {
-                            'text': text.strip(),
+                            'text': article.text.strip(),
                             'html': html,
-                            'title': article.title if 'article' in locals() else None
+                            'title': article.title
                         }
                     else:
                         logging.warning(f"No valid text found in {url}")
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logging.warning(f"Attempt {attempt + 1} failed: {str(e)}, url='{url}'")
-            if attempt == max_retries - 1:
-                return None
-            await asyncio.sleep(1 * (attempt + 1))
         except Exception as e:
-            logging.error(f"Unexpected error fetching {url}: {str(e)}")
+            logging.error(f"Error fetching {url}: {str(e)}")
             if attempt == max_retries - 1:
                 return None
             await asyncio.sleep(1 * (attempt + 1))
@@ -360,3 +329,21 @@ def extract_text(html: str) -> str:
     except Exception as e:
         logging.error(f"BeautifulSoup extraction failed: {str(e)}")
         return ""
+
+
+def clean_search_results(results: List[Dict]) -> List[Dict]:
+    seen_urls = set()
+    seen_contents = set()
+    unique_results = []
+    
+    for result in results:
+        url = result.get('link', '').split('?')[0]  # Убираем параметры URL
+        content_hash = hashlib.md5(result.get('description', '').encode()).hexdigest()
+        
+        if url not in seen_urls and content_hash not in seen_contents:
+            seen_urls.add(url)
+            seen_contents.add(content_hash)
+            unique_results.append(result)
+            
+    logging.info(f"Filtered {len(results) - len(unique_results)} duplicate results")
+    return unique_results

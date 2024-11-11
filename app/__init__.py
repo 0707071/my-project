@@ -45,8 +45,8 @@ def create_app():
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
     
-    # Initialize WebSocket
-    socketio.init_app(app)
+    # Initialize WebSocket with correct settings
+    socketio.init_app(app, async_mode=None, logger=True, engineio_logger=True)
     
     # Register blueprints
     from app.auth import bp as auth_bp

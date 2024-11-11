@@ -1,5 +1,6 @@
 from flask_socketio import SocketIO, emit, join_room
 import json
+import logging
 
 socketio = SocketIO()
 
@@ -10,16 +11,21 @@ def init_websockets(app):
     def on_join(data):
         task_id = data.get('task_id')
         if task_id:
-            join_room(f'task_{task_id}')
-            print(f"Client joined task_{task_id} room")
+            room = f'task_{task_id}'
+            join_room(room)
+            print(f"Client joined room: {room}")
 
-def send_task_log(task_id, message, stage=None, progress=None, stage_progress=None):
+def send_task_log(task_id, message, stage=None, progress=None):
     """Send task log message via WebSocket"""
-    data = {
-        'task_id': task_id,
-        'message': message,
-        'stage': stage,
-        'progress': progress,
-        'stage_progress': stage_progress
-    }
-    socketio.emit('task_update', data, room=f'task_{task_id}')
+    try:
+        data = {
+            'task_id': task_id,
+            'message': message,
+            'stage': stage,
+            'progress': progress
+        }
+        # Отправляем в конкретную комнату
+        room = f'task_{task_id}'
+        socketio.emit('task_update', data, room=room, namespace='/')
+    except Exception as e:
+        logging.error(f"Error sending websocket message: {str(e)}")

@@ -2,9 +2,11 @@ from app import db
 from datetime import datetime
 
 class AnalysisResult(db.Model):
+    __tablename__ = 'analysis_result'
+    
     id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.Integer, db.ForeignKey('search_task.id'))
-    prompt_id = db.Column(db.Integer, db.ForeignKey('prompt.id'))
+    task_id = db.Column(db.Integer, db.ForeignKey('search_task.id'), nullable=False)
+    prompt_id = db.Column(db.Integer, db.ForeignKey('prompt.id'), nullable=False)
     
     # Исходные данные
     title = db.Column(db.String(500))
@@ -23,6 +25,10 @@ class AnalysisResult(db.Model):
     # Метаданные
     article_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Добавим связи
+    task = db.relationship('SearchTask', backref=db.backref('analysis_results', lazy=True))
+    prompt = db.relationship('Prompt', backref=db.backref('analysis_results', lazy=True))
     
     def to_dict(self):
         return {

@@ -1,8 +1,8 @@
 """Initial migration
 
-Revision ID: 52f0c6f215e7
+Revision ID: 7a07eafc7ee9
 Revises: 
-Create Date: 2024-11-07 09:07:40.444262
+Create Date: 2024-11-08 23:14:31.873594
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '52f0c6f215e7'
+revision = '7a07eafc7ee9'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -22,8 +22,8 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('user',
@@ -40,14 +40,12 @@ def upgrade():
     op.create_table('prompt',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('client_id', sa.Integer(), nullable=False),
-    sa.Column('version', sa.Integer(), nullable=True),
     sa.Column('content', sa.Text(), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
-    sa.Column('created_by_id', sa.Integer(), nullable=True),
+    sa.Column('column_names', sa.Text(), nullable=True),
     sa.ForeignKeyConstraint(['client_id'], ['client.id'], ),
-    sa.ForeignKeyConstraint(['created_by_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('search_query',
@@ -64,14 +62,6 @@ def upgrade():
     sa.Column('results_per_page', sa.Integer(), nullable=True),
     sa.Column('num_pages', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['client_id'], ['client.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('prompt_field',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('prompt_id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=100), nullable=True),
-    sa.Column('order', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['prompt_id'], ['prompt.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('search_task',
@@ -93,16 +83,46 @@ def upgrade():
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('celery_task_id')
     )
+    op.create_table('analysis_result',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('task_id', sa.Integer(), nullable=False),
+    sa.Column('prompt_id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=500), nullable=True),
+    sa.Column('url', sa.String(length=500), nullable=True),
+    sa.Column('content', sa.Text(), nullable=True),
+    sa.Column('company_name', sa.String(length=200), nullable=True),
+    sa.Column('potential', sa.Integer(), nullable=True),
+    sa.Column('sales_notes', sa.Text(), nullable=True),
+    sa.Column('company_description', sa.Text(), nullable=True),
+    sa.Column('revenue', sa.Float(), nullable=True),
+    sa.Column('country', sa.String(length=100), nullable=True),
+    sa.Column('website', sa.String(length=500), nullable=True),
+    sa.Column('article_date', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['prompt_id'], ['prompt.id'], ),
+    sa.ForeignKeyConstraint(['task_id'], ['search_task.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('export',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('task_id', sa.Integer(), nullable=False),
+    sa.Column('filename', sa.String(length=255), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('file_size', sa.Integer(), nullable=True),
+    sa.Column('row_count', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['task_id'], ['search_task.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('search_result',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('task_id', sa.Integer(), nullable=False),
-    sa.Column('url', sa.String(length=500), nullable=False),
-    sa.Column('title', sa.String(length=500), nullable=True),
-    sa.Column('snippet', sa.Text(), nullable=True),
+    sa.Column('url', sa.String(length=500), nullable=True),
+    sa.Column('title', sa.Text(), nullable=True),
     sa.Column('content', sa.Text(), nullable=True),
     sa.Column('analysis', sa.Text(), nullable=True),
     sa.Column('published_date', sa.DateTime(), nullable=True),
     sa.Column('domain', sa.String(length=255), nullable=True),
+    sa.Column('snippet', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['task_id'], ['search_task.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -113,8 +133,9 @@ def upgrade():
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_table('search_result')
+    op.drop_table('export')
+    op.drop_table('analysis_result')
     op.drop_table('search_task')
-    op.drop_table('prompt_field')
     op.drop_table('search_query')
     op.drop_table('prompt')
     op.drop_table('user')

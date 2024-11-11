@@ -16,6 +16,7 @@ import re
 from llm_clients import get_llm_client
 import logging
 import openpyxl.styles
+from app.models.analysis_result import AnalysisResult
 
 # Добавляем путь к модулям поиска
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../modules'))
@@ -102,25 +103,17 @@ def run_search(self, task_id):
                 raise ValueError("No active prompt found")
 
             # Создаем директории для результатов
-            search_dir = os.path.join('results', str(search_task.client_id))
-            os.makedirs(search_dir, exist_ok=True)
+            client_dir = os.path.join('results', str(search_task.client_id))
+            os.makedirs(client_dir, exist_ok=True)
 
-            # Пути к файлам результатов
-            raw_results = os.path.join(search_dir, 'search_results.csv')
-            cleaned_results = os.path.join(search_dir, 'search_results_cleaned.csv')
-            analyzed_results = os.path.join(search_dir, 'search_results_analyzed.csv')
-            formatted_results = os.path.join(search_dir, f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
-
-            # 1. Поиск (33%)
-            total_queries = len(search_query.main_phrases.split('\n'))
-            send_task_log(task_id, "Starting search phase...", 'search', 0)
+            # Пути к файлам
+            raw_results = os.path.join(client_dir, 'search_results.csv')
+            cleaned_results = os.path.join(client_dir, 'search_results_cleaned.csv')
+            analyzed_results = os.path.join(client_dir, 'search_results_analyzed.csv')
             
-            for i, query in enumerate(search_query.main_phrases.split('\n'), 1):
-                if not query.strip():
-                    continue
-                
+            # 1. Поиск и сохранение статей
+            for query in search_query.main_phrases.split('\n'):
                 try:
-                    send_task_log(task_id, f"Processing query: {query}", 'search')
                     search_results = await fetch_xmlstock_search_results(
                         query.strip(),
                         search_query.include_words,
@@ -134,17 +127,14 @@ def run_search(self, task_id):
                     )
                     
                     if search_results:
-                        send_task_log(task_id, f"Found {len(search_results)} results", 'search')
                         articles = await process_search_results(search_results)
                         if articles:
-                            send_task_log(task_id, f"Successfully parsed {len(articles)} articles", 'search')
                             df = pd.DataFrame(articles)
+                            # Создаем файл если его нет
                             if os.path.exists(raw_results):
                                 df.to_csv(raw_results, mode='a', header=False, index=False)
                             else:
                                 df.to_csv(raw_results, index=False)
-                    search_progress = int((i / total_queries) * 33)
-                    send_task_log(task_id, None, 'search', search_progress)
                 except Exception as e:
                     send_task_log(task_id, f"Error: {str(e)}", 'search')
                     continue
@@ -152,98 +142,86 @@ def run_search(self, task_id):
             if not os.path.exists(raw_results) or os.path.getsize(raw_results) == 0:
                 raise ValueError("No search results found for any query")
 
-            # 2. Очистка (33-66%)
-            send_task_log(task_id, "Starting data cleaning...", 'clean', 33)
-            df = pd.read_csv(raw_results)
-            total_rows = len(df)
-            df_cleaned = clean_data(df)
-            cleaned_rows = len(df_cleaned)
-            send_task_log(task_id, f"Removed {total_rows - cleaned_rows} duplicates", 'clean')
-            df_cleaned.to_csv(cleaned_results, index=False)
-            send_task_log(task_id, "Data cleaning completed", 'clean', 66)
+            # 2. Очистка данных
+            if os.path.exists(raw_results):
+                df = pd.read_csv(raw_results)
+                df_cleaned = clean_data(df)
+                df_cleaned.to_csv(cleaned_results, index=False)
+            else:
+                raise ValueError("No search results found")
 
-            # 3. Анализ (66-100%)
-            send_task_log(task_id, "Starting analysis...", 'analyze', 66)
-            total_articles = len(df_cleaned)
-            for i, row in enumerate(df_cleaned.iterrows(), 1):
-                try:
-                    # ... код анализа ...
-                    analyze_progress = 66 + int((i / total_articles) * 34)
-                    send_task_log(task_id, f"Analyzed article: {row['title'][:50]}...", 'analyze', analyze_progress)
-                except Exception as e:
-                    send_task_log(task_id, f"Error analyzing article: {str(e)}", 'analyze')
-                    continue
-
-            send_task_log(task_id, "Analysis completed", 'analyze', 100)
+            # 3. Анализ данных
+            if os.path.exists(cleaned_results):
+                await run_analyse_data(cleaned_results, analyzed_results, prompt.content, {
+                    'model': 'gpt-4o-mini',
+                    'api_keys': os.getenv('OPENAI_API_KEYS', '').split(','),
+                    'max_retries': 3
+                })
+            else:
+                raise ValueError("No cleaned data found")
 
             # 4. Форматирование результатов
             if os.path.exists(analyzed_results):
                 results_df = pd.read_csv(analyzed_results)
                 
-                # Получаем названия колонок из промпта в БД
+                # Получаем названия колонок из промпта
                 column_names = [name.strip() for name in (prompt.column_names or '').split('\n') if name.strip()]
                 
-                # Разбираем ответы модели и сохраняем в БД
+                def parse_analysis(analysis_str):
+                    """Парсит ответ модели с обработкой разных форматов отсутствующих данных"""
+                    try:
+                        # Заменяем разные варианты "нет данных" на None
+                        cleaned_str = analysis_str.replace('"N/A"', 'None').replace('"NA"', 'None').replace('"N"', 'None')
+                        analysis = eval(cleaned_str)
+                        
+                        if not isinstance(analysis, list):
+                            return [None] * len(column_names)
+                        
+                        # Обрабатываем каждый элемент
+                        parsed = []
+                        for value in analysis:
+                            if value in ('N/A', 'NA', 'N', '', None):
+                                parsed.append(None)
+                            else:
+                                parsed.append(value)
+                        
+                        # Если не хватает элементов, дополняем None
+                        while len(parsed) < len(column_names):
+                            parsed.append(None)
+                            
+                        return parsed[:len(column_names)]  # Обрезаем если элементов больше чем колонок
+                        
+                    except Exception as e:
+                        logging.error(f"Error parsing analysis: {str(e)}")
+                        return [None] * len(column_names)
+                
+                # Разбираем ответы модели в новые колонки
                 for idx, row in results_df.iterrows():
                     try:
-                        analysis = eval(row['analysis'])
-                        if isinstance(analysis, list) and len(analysis) >= len(column_names):
-                            # Создаем запись в БД
-                            result = AnalysisResult(
-                                task_id=task_id,
-                                prompt_id=prompt.id,
-                                title=row.get('title'),
-                                url=row.get('link'),
-                                content=row.get('description'),
-                                company_name=analysis[0],
-                                potential=analysis[1],
-                                sales_notes=analysis[2],
-                                company_description=analysis[3],
-                                revenue=analysis[4],
-                                country=analysis[5],
-                                website=analysis[6],
-                                article_date=parse_relative_date(row.get('pubDate'))
-                            )
-                            db.session.add(result)
+                        if pd.isna(row['analysis']):
+                            values = [None] * len(column_names)
+                        else:
+                            values = parse_analysis(row['analysis'])
+                        
+                        # Добавляем значения в DataFrame
+                        for col, value in zip(column_names, values):
+                            results_df.at[idx, col] = value
+                            
                     except Exception as e:
-                        logging.error(f"Error saving result to DB: {str(e)}")
+                        logging.error(f"Error processing row {idx}: {str(e)}")
+                        # В случае ошибки заполняем None
+                        for col in column_names:
+                            results_df.at[idx, col] = None
                 
-                db.session.commit()
-
-                # Создаем новый датафрейм только с нужными колонками
-                results_df = pd.DataFrame(formatted_data)
+                # Удаляем колонку analysis
+                results_df = results_df.drop('analysis', axis=1)
                 
-                # Сохраняем с форматированием
+                # Сохраняем Excel
+                formatted_results = os.path.join(client_dir, f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
                 with pd.ExcelWriter(formatted_results, engine='openpyxl') as writer:
                     results_df.to_excel(writer, index=False)
-                    
-                    # Получаем рабочий лист
-                    worksheet = writer.sheets['Sheet1']
-                    
-                    # Устанавливаем высоту строк и ширину колонок
-                    worksheet.row_dimensions[1].height = 30  # Заголовок
-                    for i in range(2, len(results_df) + 2):
-                        worksheet.row_dimensions[i].height = 75
-                        
-                    for column in worksheet.columns:
-                        max_length = 0
-                        column = list(column)
-                        for cell in column:
-                            try:
-                                if len(str(cell.value)) > max_length:
-                                    max_length = min(len(str(cell.value)), 150)
-                            except:
-                                pass
-                        adjusted_width = (max_length + 2)
-                        worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
-                        
-                        # Форматирование ячеек
-                        for cell in column:
-                            cell.alignment = openpyxl.styles.Alignment(
-                                wrap_text=True,
-                                vertical='top'
-                            )
-                
+                    # ... форматирование Excel ...
+
                 # Обновляем задачу
                 search_task.status = 'completed'
                 search_task.result_file = formatted_results
