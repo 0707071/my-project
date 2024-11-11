@@ -3,32 +3,44 @@ from app.models import SearchTask, AnalysisResult
 import pandas as pd
 from datetime import datetime
 import io
+import os
+from flask_login import login_required
 
 @bp.route('/task/<int:task_id>/results', methods=['GET'])
+@login_required
 def task_results(task_id):
     task = SearchTask.query.get_or_404(task_id)
-    results = AnalysisResult.query.filter_by(task_id=task_id).all()
     
-    # Преобразуем результаты для отображения в таблице
-    data = [{
-        'company_name': r.company_name,
-        'potential': r.potential,
-        'sales_notes': r.sales_notes,
-        'company_description': r.company_description,
-        'revenue': r.revenue,
-        'country': r.country,
-        'website': r.website,
-        'article_date': r.article_date.strftime('%Y-%m-%d') if r.article_date else 'N/A'
-    } for r in results]
+    # Если запрошено скачивание
+    if request.args.get('download'):
+        if task.result_file and os.path.exists(task.result_file):
+            return send_file(
+                task.result_file,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            )
+        else:
+            flash('Result file not found', 'error')
     
+    # Для отображения страницы
     return render_template('task/results.html', 
-                         task=task, 
-                         results=data,
+                         task=task,
                          min_potential=request.args.get('min_potential', 0, type=int))
 
 @bp.route('/task/<int:task_id>/export', methods=['GET'])
-def export_results(task_id):
+@login_required
+def export_task_results(task_id):
     task = SearchTask.query.get_or_404(task_id)
+    
+    # Если есть готовый файл - отдаем его
+    if task.result_file and os.path.exists(task.result_file):
+        return send_file(
+            task.result_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        )
     
     # Получаем параметры фильтрации
     start_date = request.args.get('start_date')

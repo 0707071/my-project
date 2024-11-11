@@ -1,3 +1,4 @@
+from app.main import bp
 from flask import render_template, redirect, url_for, flash, request, jsonify, Response, current_app, send_file
 from flask_login import login_required, current_user
 from app import db
@@ -6,15 +7,17 @@ from app.models.client import Client
 from app.models.search_query import SearchQuery
 from app.tasks.search_tasks import run_search
 from app.models.task import SearchTask
-from app.models.prompt import Prompt  # Только Prompt, без PromptField
+from app.models.prompt import Prompt
 from app.models.search_result import SearchResult
 from app.models.export import Export
-from app.main import bp
+from app.models.analysis_result import AnalysisResult
 import csv
 from io import StringIO
 import pandas as pd
 from datetime import datetime
 import os
+import io
+import openpyxl
 
 @bp.route('/')
 @login_required
@@ -259,14 +262,29 @@ def prompt_detail(id):
     prompt = Prompt.query.get_or_404(id)
     return render_template('main/prompt_detail.html', prompt=prompt)
 
-@bp.route('/task/<int:task_id>/results')
+@bp.route('/task/<int:task_id>/results', methods=['GET'])
 @login_required
 def task_results(task_id):
     task = SearchTask.query.get_or_404(task_id)
-    page = request.args.get('page', 1, type=int)
-    results = SearchResult.query.filter_by(task_id=task_id).paginate(
-        page=page, per_page=20, error_out=False)
-    return render_template('main/results.html', task=task, results=results)
+    results = AnalysisResult.query.filter_by(task_id=task_id).all()
+    
+    # Если запрошено скачивание
+    if request.args.get('download'):
+        if task.result_file and os.path.exists(os.path.join(current_app.root_path, '..', task.result_file)):
+            return send_file(
+                os.path.join(current_app.root_path, '..', task.result_file),
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            )
+        else:
+            flash('Result file not found', 'error')
+    
+    # Для отображения страницы
+    return render_template('task/results.html', 
+                         task=task,
+                         results=results,
+                         min_potential=request.args.get('min_potential', 0, type=int))
 
 @bp.route('/task/<int:task_id>/exports')
 @login_required
@@ -275,73 +293,67 @@ def task_exports(task_id):
     exports = Export.query.filter_by(task_id=task_id).order_by(Export.created_at.desc()).all()
     return render_template('main/exports.html', task=task, exports=exports)
 
-@bp.route('/task/<int:task_id>/export')
+@bp.route('/task/<int:task_id>/export', methods=['GET'])
 @login_required
 def export_task_results(task_id):
     task = SearchTask.query.get_or_404(task_id)
-    results = SearchResult.query.filter_by(task_id=task_id).all()
     
-    # Получаем заголовки колонок из промпта или используем дефолтные
-    prompt = task.prompt
-    try:
-        column_names = [name.strip() for name in (prompt.column_names or '').split('\n') if name.strip()]
-    except (AttributeError, ValueError):
-        column_names = ['Company Name', 'Score', 'Notes', 'Description', 'Revenue', 'Country', 'Website']
+    # Если есть готовый файл - отдаем его
+    if task.result_file and os.path.exists(os.path.join(current_app.root_path, '..', task.result_file)):
+        return send_file(
+            os.path.join(current_app.root_path, '..', task.result_file),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        )
     
-    # Создаем DataFrame
-    data = []
-    for result in results:
-        row = {
-            'URL': result.url,
-            'Title': result.title,
-            'Published Date': result.published_date,
-            'Domain': result.domain,
-            'Snippet': result.snippet
-        }
+    # Получаем результаты из БД
+    results = AnalysisResult.query.filter_by(task_id=task_id).all()
+    if not results:
+        flash('No results found', 'error')
+        return redirect(url_for('main.task_results', task_id=task_id))
+    
+    # Создаем Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Преобразуем в DataFrame
+        df = pd.DataFrame([r.to_dict() for r in results])
         
-        # Разбираем анализ по колонкам
-        parsed = result.parse_analysis()
-        for col_name, value in zip(column_names, parsed.values()):
-            row[col_name] = value
+        # Записываем с форматированием
+        df.to_excel(writer, index=False)
+        
+        # Получаем рабочий лист
+        worksheet = writer.sheets['Sheet1']
+        
+        # Форматирование
+        worksheet.row_dimensions[1].height = 30  # Заголовок
+        for i in range(2, len(df) + 2):
+            worksheet.row_dimensions[i].height = 75
+        
+        for column in worksheet.columns:
+            max_length = 0
+            for cell in column:
+                try:
+                    max_length = max(max_length, len(str(cell.value)))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 150)
+            worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
             
-        data.append(row)
+            # Форматирование ячеек
+            for cell in column:
+                cell.alignment = openpyxl.styles.Alignment(
+                    wrap_text=True,
+                    vertical='top'
+                )
     
-    df = pd.DataFrame(data)
-    
-    # Создаем директорию для экспортов если её нет
-    export_dir = os.path.join('results', 'exports', str(task.id))
-    os.makedirs(export_dir, exist_ok=True)
-    
-    # Создаем файл с временной меткой
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = os.path.join(export_dir, f'search_results_{timestamp}.xlsx')
-    
-    # Сохраняем файл
-    writer = pd.ExcelWriter(filename, engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='Results')
-    
-    # Форматируем
-    worksheet = writer.sheets['Results']
-    for i, col in enumerate(df.columns):
-        max_length = max(df[col].astype(str).apply(len).max(), len(col)) + 2
-        worksheet.set_column(i, i, max_length)
-    
-    writer.close()
-    
-    # Сохраняем информацию об экспорте
-    export = Export(
-        task_id=task_id,
-        filename=filename,
-        file_size=os.path.getsize(filename),
-        row_count=len(df)
+    output.seek(0)
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'analysis_results_{datetime.now().strftime("%Y%m%d")}.xlsx'
     )
-    db.session.add(export)
-    db.session.commit()
-    
-    return send_file(filename, 
-                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    as_attachment=True,
-                    download_name=f'search_results_{task_id}_{timestamp}.xlsx')
 
 @bp.route('/debug')
 def debug():

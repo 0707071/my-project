@@ -1,5 +1,6 @@
 from app import db
 from datetime import datetime
+import os
 
 class SearchTask(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -18,3 +19,9 @@ class SearchTask(db.Model):
     
     def __repr__(self):
         return f'<SearchTask {self.id}>'
+
+    def get_latest_result_file(self):
+        """Returns path to the latest result file"""
+        if self.result_file and os.path.exists(self.result_file):
+            return self.result_file
+        return None
