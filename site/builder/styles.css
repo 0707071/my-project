@@ -1,0 +1,103 @@
+/* Базовая структура */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 300px 1fr 250px;
+    min-height: 100vh;
+}
+
+/* Шапка */
+header {
+    grid-column: 1 / -1;
+    padding: 1rem;
+    background: white;
+    border-bottom: 1px solid #eaecef;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* Боковое меню */
+.sidebar {
+    padding: 2rem 1rem;
+    border-right: 1px solid #eaecef;
+    background: #f8f9fa;
+    height: calc(100vh - 4rem);
+    position: sticky;
+    top: 4rem;
+    overflow-y: auto;
+}
+
+/* Спойлеры */
+.section-header {
+    width: 100%;
+    text-align: left;
+    padding: 1rem;
+    background: white;
+    border: 1px solid #eaecef;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+}
+
+.section-content {
+    display: none;
+    padding-left: 1rem;
+}
+
+.file-header {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border: none;
+    margin: 0.25rem 0;
+    cursor: pointer;
+}
+
+.file-content {
+    display: none;
+    padding-left: 1rem;
+}
+
+/* Активные состояния */
+.section-header.active,
+.file-header.active {
+    background: #e3f2fd;
+}
+
+/* Основной контент */
+main {
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Оглавление справа */
+.toc {
+    padding: 2rem 1rem;
+    border-left: 1px solid #eaecef;
+    height: calc(100vh - 4rem);
+    position: sticky;
+    top: 4rem;
+    overflow-y: auto;
+}
+
+/* Подсветка кода */
+pre {
+    background: #f6f8fa;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.9em;
+}

@@ -1,0 +1,82 @@
+site_name: Karhuno Analysis System
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+    
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - def_list
+  - footnotes
+
+use_directory_urls: false
+
+nav:
+  - Home: index.md
+  - Overview:
+    - Overview: overview/index.md
+    - Introduction: overview/introduction.md
+    - Architecture: overview/architecture.md
+    - Data Pipeline: overview/data-pipeline.md
+  - Developer Guide:
+    - Overview: developer/index.md
+    - Getting Started: developer/getting-started.md
+    - Core Functionality: developer/core-functionality.md
+    - Extending System: developer/extending.md
+  - Business Processes:
+    - Overview: business-processes/index.md
+    - Client Request: business-processes/client-request.md
+    - Client Workflow: business-processes/client-workflow.md
+    - Analysis Process: business-processes/analysis-process.md
+    - Search Configuration: business-processes/search-config.md
+  - Prompts:
+    - Overview: prompts/index.md
+    - Structure: prompts/structure.md
+    - Results: prompts/results.md
+    - LLM Integration: prompts/llm.md
+  - API:
+    - Overview: api/overview.md
+    - Authentication: api/authentication.md
+    - Endpoints: api/endpoints.md
+    - Examples: api/examples.md
+  - Deployment:
+    - Overview: deployment/index.md
+    - Setup: deployment/setup.md
+    - Configuration: deployment/configuration.md
+    - Security: deployment/security.md
+    - Monitoring: deployment/monitoring.md
+  - Performance:
+    - Overview: performance/index.md
+    - Metrics: performance/metrics.md
+    - Optimization: performance/optimization.md
+    - Scaling: performance/scaling.md
+  - Best Practices:
+    - Overview: best-practices/index.md
+    - Development: best-practices/development.md
+    - Data Handling: best-practices/data-handling.md
+    - Optimization: best-practices/optimization.md
+  - Security:
+    - Overview: security/overview.md
+    - Configuration: security/configuration.md
+    - Best Practices: security/best-practices.md
+  - Troubleshooting:
+    - Overview: troubleshooting/index.md
+    - Common Issues: troubleshooting/common-issues.md
+    - Specific Cases: troubleshooting/specific-cases.md
+    - Support: troubleshooting/support.md
+  - Guides:
+    - Sales Teams: guides/sales-teams.md
+    - Analyst Workflow: guides/analyst-workflow.md

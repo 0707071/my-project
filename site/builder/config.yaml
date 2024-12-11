@@ -1,0 +1,60 @@
+# Порядок и структура документации
+sections:
+  - name: "overview"
+    title: "Overview"
+    files:
+      - "introduction.md"
+      - "architecture.md"
+      - "data-pipeline.md"
+
+  - name: "getting-started"
+    title: "Getting Started"
+    files:
+      - "quick-start.md"
+      - "installation.md"
+      - "configuration.md"
+
+  - name: "business-processes"
+    title: "Business Processes"
+    files:
+      - "index.md"
+      - "client-workflow.md"
+      - "analysis-process.md"
+      - "search-config.md"
+
+  - name: "prompts"
+    title: "Prompts"
+    files:
+      - "index.md"
+      - "structure.md"
+      - "results.md"
+
+  - name: "api"
+    title: "API Reference"
+    files:
+      - "overview.md"
+      - "authentication.md"
+      - "endpoints.md"
+      - "examples.md"
+
+  - name: "deployment"
+    title: "Deployment"
+    files:
+      - "setup.md"
+      - "configuration.md"
+      - "security.md"
+      - "monitoring.md"
+
+  - name: "performance"
+    title: "Performance"
+    files:
+      - "metrics.md"
+      - "optimization.md"
+      - "scaling.md"
+
+  - name: "troubleshooting"
+    title: "Troubleshooting"
+    files:
+      - "common-issues.md"
+      - "specific-cases.md"
+      - "support.md" 

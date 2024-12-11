@@ -1,105 +1,110 @@
-2024-11-11 15:59:52,011 INFO: Celery worker started
-[2024-11-11 15:59:52,658: INFO/MainProcess] Connected to redis://localhost:6379/0
-[2024-11-11 15:59:52,663: INFO/MainProcess] mingle: searching for neighbors
-[2024-11-11 15:59:53,672: INFO/MainProcess] mingle: all alone
-[2024-11-11 15:59:53,702: INFO/MainProcess] celery@pol ready.
-[2024-11-11 16:00:25,380: INFO/MainProcess] Task app.tasks.search_tasks.run_search[01efe8db-807c-4fdf-a898-3425025a0e4a] received
-[2024-11-11 16:00:25,586: WARNING/ForkPoolWorker-1] Full search query: cold warehouse launch
-[2024-11-11 16:00:25,587: WARNING/ForkPoolWorker-1] Using XMLSTOCK API
-[2024-11-11 16:00:25,587: WARNING/ForkPoolWorker-1] Search parameters: {'user': '12230', 'key': 'c1dc3ea107e03a392e0d0432c6fe3348', 'query': 'cold warehouse launch', 'num': 30, 'tbs': 'qdr:d7', 'sort': 'date'}
-[2024-11-11 16:00:25,592: WARNING/ForkPoolWorker-1] 
+2024-11-11 16:08:04,685 INFO: Celery worker started
+[2024-11-11 16:08:05,281: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2024-11-11 16:08:05,296: INFO/MainProcess] mingle: searching for neighbors
+[2024-11-11 16:08:06,329: INFO/MainProcess] mingle: all alone
+[2024-11-11 16:08:06,342: INFO/MainProcess] celery@pol ready.
+2024-11-11 16:24:22,461 INFO: Celery worker started
+[2024-11-11 16:24:22,824: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2024-11-11 16:24:22,831: INFO/MainProcess] mingle: searching for neighbors
+[2024-11-11 16:24:23,842: INFO/MainProcess] mingle: all alone
+[2024-11-11 16:24:23,865: INFO/MainProcess] celery@pol ready.
+[2024-11-11 16:24:28,636: INFO/MainProcess] Task app.tasks.search_tasks.run_search[c65501d5-557f-4ef5-bfa0-f131695cc16d] received
+[2024-11-11 16:24:28,882: WARNING/ForkPoolWorker-1] Full search query: cold warehouse launch
+[2024-11-11 16:24:28,882: WARNING/ForkPoolWorker-1] Using XMLSTOCK API
+[2024-11-11 16:24:28,882: WARNING/ForkPoolWorker-1] Search parameters: {'user': '12230', 'key': 'c1dc3ea107e03a392e0d0432c6fe3348', 'query': 'cold warehouse launch', 'num': 30, 'tbs': 'qdr:d7', 'sort': 'date'}
+[2024-11-11 16:24:28,883: WARNING/ForkPoolWorker-1] 
 Processing page 1/1
-[2024-11-11 16:00:29,287: WARNING/ForkPoolWorker-1] Response status code: 200
-[2024-11-11 16:00:29,287: WARNING/ForkPoolWorker-1] Request URL: https://xmlstock.com/google/xml/?user=12230&key=c1dc3ea107e03a392e0d0432c6fe3348&query=cold+warehouse+launch&num=30&tbs=qdr:d7&sort=date&start=0
-[2024-11-11 16:00:29,289: WARNING/ForkPoolWorker-1] Raw XML response (first 500 chars): <?xml version="1.0" encoding="UTF-8"?>
-<yandexsearch version="1.0"><response date="20241111T160027"><found priority="all">410000</found><results><grouping><page first="1" last="99">0</page><group id="1"><doccount>1</doccount><doc><url>https://www.supplychain247.com/article/lineage-hazle-township-pennsylvania-automated-cold-storage-facility</url><site_name>Supply Chain 24/7</site_name><cachelink>https://webcache.googleusercontent.com/search?q=cache:https://www.supplychain247.com/article/lineage-h
-[2024-11-11 16:00:29,294: WARNING/ForkPoolWorker-1] Results on page 1: 30
-[2024-11-11 16:00:29,295: WARNING/ForkPoolWorker-1] Total results so far: 30
-[2024-11-11 16:00:30,132: WARNING/ForkPoolWorker-1] Access denied (403) for https://www.supplychain247.com/article/lineage-hazle-township-pennsylvania-automated-cold-storage-facility
-[2024-11-11 16:00:30,134: WARNING/ForkPoolWorker-1] No valid content for https://www.supplychain247.com/article/lineage-hazle-township-pennsylvania-automated-cold-storage-facility
-[2024-11-11 16:00:30,635: WARNING/ForkPoolWorker-1] Failed to fetch https://www.f6s.com/companies/cold-chain-logistics/mo, status: 405
-[2024-11-11 16:00:33,255: ERROR/ForkPoolWorker-1] Error fetching https://coldstorage.com.sg/en/d/SEP7QtcKaCf.html?srsltid=AfmBOop3meTBgSCqQnF7DljWlZ8fmoZIjPA1UgCc8SwCmfuBpc--e5Bg: Cannot connect to host coldstorage.com.sg:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1006)')]
-[2024-11-11 16:00:34,406: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=AvGmBEgLiEg
-[2024-11-11 16:00:34,533: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=lZATuxcNGNk
-[2024-11-11 16:00:34,773: WARNING/ForkPoolWorker-1] No valid text found in https://www.foodlogistics.com/warehousing
-[2024-11-11 16:01:02,818: WARNING/ForkPoolWorker-1] No valid text found in https://ruzave.com/new-caledonia/la-foa/warehousing-centres/cold-storage-companies
-[2024-11-11 16:01:03,098: WARNING/ForkPoolWorker-1] No valid text found in https://www.instagram.com/mybhubaneswar/p/C8pPwd7sVPI/?locale=zh_CN&hl=bg
-[2024-11-11 16:01:03,103: ERROR/ForkPoolWorker-1] Error fetching https://m.facebook.com/UnitedStatesColdStorage/videos/we-launched-six-new-expansion-projects-larry-alderfer-us-colds-president-and-ceo/589873173478322/: 
-[2024-11-11 16:01:03,104: ERROR/ForkPoolWorker-1] Error fetching https://www.azenta.com/automated-sample-storage-systems-ambient-ultra-cold-cryogenic/automated-ultra-cold-storage-systems-80c-ult: 
-[2024-11-11 16:01:03,104: ERROR/ForkPoolWorker-1] Error fetching https://www.f6s.com/companies/cold-chain-logistics/mo: 
-[2024-11-11 16:01:04,003: ERROR/ForkPoolWorker-1] Error fetching https://coldstorage.com.sg/en/d/SEP7QtcKaCf.html?srsltid=AfmBOop3meTBgSCqQnF7DljWlZ8fmoZIjPA1UgCc8SwCmfuBpc--e5Bg: Cannot connect to host coldstorage.com.sg:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1006)')]
-[2024-11-11 16:01:04,723: WARNING/ForkPoolWorker-1] No valid text found in https://www.foodlogistics.com/warehousing
-[2024-11-11 16:01:04,817: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=AvGmBEgLiEg
-[2024-11-11 16:01:05,025: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=lZATuxcNGNk
-[2024-11-11 16:01:05,058: WARNING/ForkPoolWorker-1] No valid text found in https://www.instagram.com/mybhubaneswar/p/C8pPwd7sVPI/?locale=zh_CN&hl=bg
-[2024-11-11 16:01:05,780: WARNING/ForkPoolWorker-1] No valid text found in https://ruzave.com/new-caledonia/la-foa/warehousing-centres/cold-storage-companies
-[2024-11-11 16:01:06,064: WARNING/ForkPoolWorker-1] Failed to fetch https://www.f6s.com/companies/cold-chain-logistics/mo, status: 405
-[2024-11-11 16:01:06,532: WARNING/ForkPoolWorker-1] No valid text found in https://www.instagram.com/mybhubaneswar/p/C8pPwd7sVPI/?locale=zh_CN&hl=bg
-[2024-11-11 16:01:06,896: WARNING/ForkPoolWorker-1] No valid text found in https://www.foodlogistics.com/warehousing
-[2024-11-11 16:01:07,368: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=lZATuxcNGNk
-[2024-11-11 16:01:07,422: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=AvGmBEgLiEg
-[2024-11-11 16:01:07,424: WARNING/ForkPoolWorker-1] No valid content for https://www.youtube.com/watch?v=AvGmBEgLiEg
-[2024-11-11 16:01:07,424: WARNING/ForkPoolWorker-1] No valid content for https://www.youtube.com/watch?v=lZATuxcNGNk
-[2024-11-11 16:01:07,424: WARNING/ForkPoolWorker-1] No valid content for https://www.f6s.com/companies/cold-chain-logistics/mo
-[2024-11-11 16:01:07,424: ERROR/ForkPoolWorker-1] Error fetching https://coldstorage.com.sg/en/d/SEP7QtcKaCf.html?srsltid=AfmBOop3meTBgSCqQnF7DljWlZ8fmoZIjPA1UgCc8SwCmfuBpc--e5Bg: Cannot connect to host coldstorage.com.sg:443 ssl:True [SSLCertVerificationError: (1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1006)')]
-[2024-11-11 16:01:08,115: WARNING/ForkPoolWorker-1] No valid text found in https://m.facebook.com/UnitedStatesColdStorage/videos/we-launched-six-new-expansion-projects-larry-alderfer-us-colds-president-and-ceo/589873173478322/
-[2024-11-11 16:01:08,591: WARNING/ForkPoolWorker-1] No valid text found in https://ruzave.com/new-caledonia/la-foa/warehousing-centres/cold-storage-companies
-[2024-11-11 16:01:10,593: WARNING/ForkPoolWorker-1] No valid text found in https://m.facebook.com/UnitedStatesColdStorage/videos/we-launched-six-new-expansion-projects-larry-alderfer-us-colds-president-and-ceo/589873173478322/
-[2024-11-11 16:01:10,595: WARNING/ForkPoolWorker-1] No valid content for https://m.facebook.com/UnitedStatesColdStorage/videos/we-launched-six-new-expansion-projects-larry-alderfer-us-colds-president-and-ceo/589873173478322/
-[2024-11-11 16:01:10,596: WARNING/ForkPoolWorker-1] No valid content for https://ruzave.com/new-caledonia/la-foa/warehousing-centres/cold-storage-companies
-[2024-11-11 16:01:10,596: WARNING/ForkPoolWorker-1] No valid content for https://www.instagram.com/mybhubaneswar/p/C8pPwd7sVPI/?locale=zh_CN&hl=bg
-[2024-11-11 16:01:10,596: WARNING/ForkPoolWorker-1] No valid content for https://coldstorage.com.sg/en/d/SEP7QtcKaCf.html?srsltid=AfmBOop3meTBgSCqQnF7DljWlZ8fmoZIjPA1UgCc8SwCmfuBpc--e5Bg
-[2024-11-11 16:01:10,596: WARNING/ForkPoolWorker-1] No valid content for https://www.foodlogistics.com/warehousing
-[2024-11-11 16:01:10,703: WARNING/ForkPoolWorker-1] Removed 59 duplicate URLs
-[2024-11-11 16:01:10,726: WARNING/ForkPoolWorker-1] Removed 59 duplicate contents
-[2024-11-11 16:01:15,677: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:15,720: INFO/ForkPoolWorker-1] Analyzed article 1
-[2024-11-11 16:01:21,401: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:21,403: INFO/ForkPoolWorker-1] Analyzed article 2
-[2024-11-11 16:01:24,815: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:24,829: INFO/ForkPoolWorker-1] Analyzed article 3
-[2024-11-11 16:01:27,877: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:27,885: INFO/ForkPoolWorker-1] Analyzed article 4
-[2024-11-11 16:01:31,130: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:31,134: INFO/ForkPoolWorker-1] Analyzed article 5
-[2024-11-11 16:01:32,613: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:32,624: INFO/ForkPoolWorker-1] Analyzed article 6
-[2024-11-11 16:01:35,198: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:35,202: INFO/ForkPoolWorker-1] Analyzed article 7
-[2024-11-11 16:01:37,017: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:37,023: INFO/ForkPoolWorker-1] Analyzed article 8
-[2024-11-11 16:01:39,322: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:39,326: INFO/ForkPoolWorker-1] Analyzed article 9
-[2024-11-11 16:01:41,078: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:41,082: INFO/ForkPoolWorker-1] Analyzed article 10
-[2024-11-11 16:01:43,678: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:43,682: INFO/ForkPoolWorker-1] Analyzed article 11
-[2024-11-11 16:01:49,660: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:49,661: INFO/ForkPoolWorker-1] Analyzed article 12
-[2024-11-11 16:01:51,944: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:51,948: INFO/ForkPoolWorker-1] Analyzed article 13
-[2024-11-11 16:01:54,306: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:54,312: INFO/ForkPoolWorker-1] Analyzed article 14
-[2024-11-11 16:01:57,263: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:01:57,267: INFO/ForkPoolWorker-1] Analyzed article 15
-[2024-11-11 16:02:02,077: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:02,083: INFO/ForkPoolWorker-1] Analyzed article 16
-[2024-11-11 16:02:09,846: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:09,851: INFO/ForkPoolWorker-1] Analyzed article 17
-[2024-11-11 16:02:12,743: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:12,746: INFO/ForkPoolWorker-1] Analyzed article 18
-[2024-11-11 16:02:15,098: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:15,103: INFO/ForkPoolWorker-1] Analyzed article 19
-[2024-11-11 16:02:17,848: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:17,853: INFO/ForkPoolWorker-1] Analyzed article 20
-[2024-11-11 16:02:20,354: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:20,359: INFO/ForkPoolWorker-1] Analyzed article 21
-[2024-11-11 16:02:24,811: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:24,815: INFO/ForkPoolWorker-1] Analyzed article 22
-[2024-11-11 16:02:28,453: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:28,454: INFO/ForkPoolWorker-1] Analyzed article 23
-[2024-11-11 16:02:31,441: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-[2024-11-11 16:02:31,447: INFO/ForkPoolWorker-1] Analyzed article 24
-[2024-11-11 16:02:31,537: ERROR/ForkPoolWorker-1] Error parsing analysis: name 'N' is not defined
-[2024-11-11 16:02:31,546: ERROR/ForkPoolWorker-1] Error parsing analysis: invalid syntax (<string>, line 3)
-[2024-11-11 16:02:31,682: INFO/ForkPoolWorker-1] Task app.tasks.search_tasks.run_search[01efe8db-807c-4fdf-a898-3425025a0e4a] succeeded in 126.300534273003s: {'status': 'success'}
+[2024-11-11 16:24:33,750: WARNING/ForkPoolWorker-1] Response status code: 200
+[2024-11-11 16:24:33,750: WARNING/ForkPoolWorker-1] Request URL: https://xmlstock.com/google/xml/?user=12230&key=c1dc3ea107e03a392e0d0432c6fe3348&query=cold+warehouse+launch&num=30&tbs=qdr:d7&sort=date&start=0
+[2024-11-11 16:24:33,752: WARNING/ForkPoolWorker-1] Raw XML response (first 500 chars): <?xml version="1.0" encoding="UTF-8"?>
+<yandexsearch version="1.0"><response date="20241111T162430"><found priority="all">408000</found><results><grouping><page first="1" last="99">0</page><group id="1"><doccount>1</doccount><doc><url>https://www.supplychain247.com/article/lineage-hazle-township-pennsylvania-automated-cold-storage-facility</url><site_name>Supply Chain 24/7</site_name><cachelink>https://webcache.googleusercontent.com/search?q=cache:https://www.supplychain247.com/article/lineage-h
+[2024-11-11 16:24:33,757: WARNING/ForkPoolWorker-1] Results on page 1: 30
+[2024-11-11 16:24:33,758: WARNING/ForkPoolWorker-1] Total results so far: 30
+[2024-11-11 16:24:34,689: WARNING/ForkPoolWorker-1] Access denied (403) for https://www.supplychain247.com/article/lineage-hazle-township-pennsylvania-automated-cold-storage-facility
+[2024-11-11 16:24:34,690: WARNING/ForkPoolWorker-1] No valid content for https://www.supplychain247.com/article/lineage-hazle-township-pennsylvania-automated-cold-storage-facility
+[2024-11-11 16:24:35,073: WARNING/ForkPoolWorker-1] Failed to fetch https://www.f6s.com/companies/cold-chain-logistics/mo, status: 405
+[2024-11-11 16:24:35,950: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=lZATuxcNGNk
+[2024-11-11 16:24:36,852: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=AvGmBEgLiEg
+[2024-11-11 16:25:04,252: WARNING/ForkPoolWorker-1] No valid text found in https://www.foodlogistics.com/warehousing
+[2024-11-11 16:25:04,813: WARNING/ForkPoolWorker-1] No valid text found in https://ruzave.com/central-african-republic/mobaye-3/warehousing-centres/cold-storage-warehouse-for-rent
+[2024-11-11 16:25:05,017: WARNING/ForkPoolWorker-1] No valid text found in https://www.instagram.com/mybhubaneswar/p/C8pPwd7sVPI/?locale=zh_CN&hl=bg
+[2024-11-11 16:25:05,021: ERROR/ForkPoolWorker-1] Error fetching https://b-linepdx.com/services/warehousing/: 
+[2024-11-11 16:25:05,021: ERROR/ForkPoolWorker-1] Error fetching https://m.facebook.com/UnitedStatesColdStorage/videos/we-launched-six-new-expansion-projects-larry-alderfer-us-colds-president-and-ceo/589873173478322/: 
+[2024-11-11 16:25:05,022: ERROR/ForkPoolWorker-1] Error fetching https://www.azenta.com/automated-sample-storage-systems-ambient-ultra-cold-cryogenic/automated-ultra-cold-storage-systems-80c-ult: 
+[2024-11-11 16:25:05,373: WARNING/ForkPoolWorker-1] Failed to fetch https://www.f6s.com/companies/cold-chain-logistics/mo, status: 405
+[2024-11-11 16:25:06,758: WARNING/ForkPoolWorker-1] No valid text found in https://www.foodlogistics.com/warehousing
+[2024-11-11 16:25:06,786: WARNING/ForkPoolWorker-1] No valid text found in https://www.instagram.com/mybhubaneswar/p/C8pPwd7sVPI/?locale=zh_CN&hl=bg
+[2024-11-11 16:25:06,789: WARNING/ForkPoolWorker-1] Failed to fetch https://www.f6s.com/companies/cold-chain-logistics/mo, status: 405
+[2024-11-11 16:25:06,893: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=lZATuxcNGNk
+[2024-11-11 16:25:07,646: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=AvGmBEgLiEg
+[2024-11-11 16:25:07,905: WARNING/ForkPoolWorker-1] No valid text found in https://ruzave.com/central-african-republic/mobaye-3/warehousing-centres/cold-storage-warehouse-for-rent
+[2024-11-11 16:25:09,083: WARNING/ForkPoolWorker-1] No valid text found in https://www.foodlogistics.com/warehousing
+[2024-11-11 16:25:09,104: WARNING/ForkPoolWorker-1] No valid text found in https://www.instagram.com/mybhubaneswar/p/C8pPwd7sVPI/?locale=zh_CN&hl=bg
+[2024-11-11 16:25:09,279: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=lZATuxcNGNk
+[2024-11-11 16:25:09,548: WARNING/ForkPoolWorker-1] No valid text found in https://www.youtube.com/watch?v=AvGmBEgLiEg
+[2024-11-11 16:25:09,549: WARNING/ForkPoolWorker-1] No valid content for https://www.youtube.com/watch?v=AvGmBEgLiEg
+[2024-11-11 16:25:09,549: WARNING/ForkPoolWorker-1] No valid content for https://www.youtube.com/watch?v=lZATuxcNGNk
+[2024-11-11 16:25:09,652: WARNING/ForkPoolWorker-1] No valid text found in https://m.facebook.com/UnitedStatesColdStorage/videos/we-launched-six-new-expansion-projects-larry-alderfer-us-colds-president-and-ceo/589873173478322/
+[2024-11-11 16:25:11,442: WARNING/ForkPoolWorker-1] No valid text found in https://ruzave.com/central-african-republic/mobaye-3/warehousing-centres/cold-storage-warehouse-for-rent
+[2024-11-11 16:25:13,263: WARNING/ForkPoolWorker-1] No valid text found in https://m.facebook.com/UnitedStatesColdStorage/videos/we-launched-six-new-expansion-projects-larry-alderfer-us-colds-president-and-ceo/589873173478322/
+[2024-11-11 16:25:13,264: WARNING/ForkPoolWorker-1] No valid content for https://m.facebook.com/UnitedStatesColdStorage/videos/we-launched-six-new-expansion-projects-larry-alderfer-us-colds-president-and-ceo/589873173478322/
+[2024-11-11 16:25:13,264: WARNING/ForkPoolWorker-1] No valid content for https://www.f6s.com/companies/cold-chain-logistics/mo
+[2024-11-11 16:25:13,265: WARNING/ForkPoolWorker-1] No valid content for https://ruzave.com/central-african-republic/mobaye-3/warehousing-centres/cold-storage-warehouse-for-rent
+[2024-11-11 16:25:13,265: WARNING/ForkPoolWorker-1] No valid content for https://www.instagram.com/mybhubaneswar/p/C8pPwd7sVPI/?locale=zh_CN&hl=bg
+[2024-11-11 16:25:13,265: WARNING/ForkPoolWorker-1] No valid content for https://www.foodlogistics.com/warehousing
+[2024-11-11 16:25:13,277: WARNING/ForkPoolWorker-1] Removed 81 duplicate URLs
+[2024-11-11 16:25:13,278: WARNING/ForkPoolWorker-1] Removed 81 duplicate contents
+[2024-11-11 16:25:17,886: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:17,906: INFO/ForkPoolWorker-1] Analyzed article 1
+[2024-11-11 16:25:20,580: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:20,584: INFO/ForkPoolWorker-1] Analyzed article 2
+[2024-11-11 16:25:23,293: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:23,297: INFO/ForkPoolWorker-1] Analyzed article 3
+[2024-11-11 16:25:25,769: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:25,774: INFO/ForkPoolWorker-1] Analyzed article 4
+[2024-11-11 16:25:28,545: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:28,549: INFO/ForkPoolWorker-1] Analyzed article 5
+[2024-11-11 16:25:30,565: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:30,572: INFO/ForkPoolWorker-1] Analyzed article 6
+[2024-11-11 16:25:32,948: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:32,952: INFO/ForkPoolWorker-1] Analyzed article 7
+[2024-11-11 16:25:34,887: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:34,889: INFO/ForkPoolWorker-1] Analyzed article 8
+[2024-11-11 16:25:38,908: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:38,912: INFO/ForkPoolWorker-1] Analyzed article 9
+[2024-11-11 16:25:42,188: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:42,192: INFO/ForkPoolWorker-1] Analyzed article 10
+[2024-11-11 16:25:44,517: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:44,521: INFO/ForkPoolWorker-1] Analyzed article 11
+[2024-11-11 16:25:46,998: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:47,002: INFO/ForkPoolWorker-1] Analyzed article 12
+[2024-11-11 16:25:49,934: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:49,938: INFO/ForkPoolWorker-1] Analyzed article 13
+[2024-11-11 16:25:52,445: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:52,448: INFO/ForkPoolWorker-1] Analyzed article 14
+[2024-11-11 16:25:55,362: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:55,365: INFO/ForkPoolWorker-1] Analyzed article 15
+[2024-11-11 16:25:57,570: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:25:57,573: INFO/ForkPoolWorker-1] Analyzed article 16
+[2024-11-11 16:26:05,397: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:26:05,402: INFO/ForkPoolWorker-1] Analyzed article 17
+[2024-11-11 16:26:07,736: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:26:07,739: INFO/ForkPoolWorker-1] Analyzed article 18
+[2024-11-11 16:26:10,727: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:26:10,730: INFO/ForkPoolWorker-1] Analyzed article 19
+[2024-11-11 16:26:14,266: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:26:14,269: INFO/ForkPoolWorker-1] Analyzed article 20
+[2024-11-11 16:26:16,956: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:26:16,959: INFO/ForkPoolWorker-1] Analyzed article 21
+[2024-11-11 16:26:19,734: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:26:19,737: INFO/ForkPoolWorker-1] Analyzed article 22
+[2024-11-11 16:26:22,624: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:26:22,627: INFO/ForkPoolWorker-1] Analyzed article 23
+[2024-11-11 16:26:25,690: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2024-11-11 16:26:25,693: INFO/ForkPoolWorker-1] Analyzed article 24
+[2024-11-11 16:26:25,727: ERROR/ForkPoolWorker-1] Error parsing analysis: name 'N' is not defined
+[2024-11-11 16:26:25,729: ERROR/ForkPoolWorker-1] Error parsing analysis: name 'N' is not defined
+[2024-11-11 16:26:25,731: ERROR/ForkPoolWorker-1] Error parsing analysis: name 'N' is not defined
+[2024-11-11 16:26:25,732: ERROR/ForkPoolWorker-1] Error parsing analysis: name 'N' is not defined
+[2024-11-11 16:26:25,734: ERROR/ForkPoolWorker-1] Error parsing analysis: invalid syntax (<string>, line 3)
+[2024-11-11 16:26:25,785: INFO/ForkPoolWorker-1] Task app.tasks.search_tasks.run_search[c65501d5-557f-4ef5-bfa0-f131695cc16d] succeeded in 117.14766685799987s: {'status': 'success'}
