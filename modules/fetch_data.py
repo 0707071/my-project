@@ -42,11 +42,11 @@ print(f"User: {XMLSTOCK_USER}")
 print(f"Key: {XMLSTOCK_KEY}")
 
 # Семафор для ограничения количества одновременных запросов
-MAX_CONCURRENT_REQUESTS = 10
+MAX_CONCURRENT_REQUESTS = 100
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
 # Задержка между запросами в секундах
-REQUEST_DELAY = 1
+REQUEST_DELAY = 0.1
 
 
 async def fetch_xmlstock_search_results(query, include, exclude, config, verbose=False):

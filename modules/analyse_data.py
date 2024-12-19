@@ -16,9 +16,9 @@ class RateLimiter:
     Controls the rate of requests to prevent exceeding API limits.
     """
     def __init__(self, max_rate, period=60):
-        self.max_rate = max_rate
+        self.max_rate = max_rate * 10
         self.period = period
-        self.tokens = max_rate
+        self.tokens = max_rate * 10
         self.updated_at = time.monotonic()
 
     async def acquire(self):
