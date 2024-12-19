@@ -17,6 +17,8 @@ from llm_clients import get_llm_client
 import logging
 import openpyxl.styles
 from app.models.analysis_result import AnalysisResult
+import ast
+from typing import List, Any
 
 # Добавляем путь к модулям поиска
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../modules'))
@@ -167,33 +169,98 @@ def run_search(self, task_id):
                 # Получаем названия колонок из промпта
                 column_names = [name.strip() for name in (prompt.column_names or '').split('\n') if name.strip()]
                 
-                def parse_analysis(analysis_str):
-                    """Парсит ответ модели с обработкой разных форматов отсутствующих данных"""
+                def parse_analysis(analysis_str: str) -> List[str]:
+                    """
+                    Парсит ответ модели с обработкой разных форматов и типичных ошибок
+                    
+                    Поддерживает:
+                    - Списки в квадратных скобках [1, 2, 3]
+                    - JSON в фигурных скобках {"a": 1}
+                    - Ответы в блоках кода ```[1,2,3]```
+                    - Разные варианты кавычек (' " `)
+                    - Неверное экранирование
+                    
+                    Всегда возвращает список строк. При ошибке парсинга возвращает 
+                    сырой ответ модели в первой колонке и "Err" в остальных.
+                    """
+                    if not analysis_str or pd.isna(analysis_str):
+                        return [None] * len(column_names)
+                        
                     try:
-                        # Заменяем разные варианты "нет данных" на None
-                        cleaned_str = analysis_str.replace('"N/A"', 'None').replace('"NA"', 'None').replace('"N"', 'None')
-                        analysis = eval(cleaned_str)
+                        # Очищаем от блоков кода
+                        clean_str = re.sub(r'```.*?```', '', analysis_str, flags=re.DOTALL)
                         
-                        if not isinstance(analysis, list):
-                            return [None] * len(column_names)
+                        # Ищем список или JSON между скобками
+                        list_match = re.search(r'\[(.*?)\]', clean_str, re.DOTALL)
+                        json_match = re.search(r'\{(.*?)\}', clean_str, re.DOTALL)
                         
-                        # Обрабатываем каждый элемент
-                        parsed = []
-                        for value in analysis:
-                            if value in ('N/A', 'NA', 'N', '', None):
-                                parsed.append(None)
-                            else:
-                                parsed.append(value)
-                        
-                        # Если не хватает элементов, дополняем None
-                        while len(parsed) < len(column_names):
-                            parsed.append(None)
+                        # Если не нашли ни списка, ни JSON - возвращаем сырой ответ
+                        if not list_match and not json_match:
+                            return [clean_str.strip()] + ["Err"] * (len(column_names) - 1)
                             
-                        return parsed[:len(column_names)]  # Обрезаем если элементов больше чем колонок
+                        content = None
+                        if list_match:
+                            content = f"[{list_match.group(1)}]"
+                        elif json_match:
+                            content = f"{{{json_match.group(1)}}}"
+                            
+                        # Нормализуем кавычки
+                        content = (
+                            content
+                            .replace('"', '"')
+                            .replace('"', '"')
+                            .replace(''', "'")
+                            .replace(''', "'")
+                        )
+                        
+                        # Пробуем разные методы парсинга
+                        try:
+                            # Сначала как JSON
+                            if content.startswith('{'):
+                                data = json.loads(content)
+                                values = list(data.values())
+                            else:
+                                data = json.loads(content)
+                                values = data if isinstance(data, list) else [data]
+                                
+                        except json.JSONDecodeError:
+                            try:
+                                # Затем как Python literal
+                                values = ast.literal_eval(content)
+                                values = values if isinstance(values, list) else [values]
+                                
+                            except (SyntaxError, ValueError):
+                                # Если не получилось - пробуем исправить экранирование
+                                fixed_content = (
+                                    content
+                                    .replace('\\n', '\n')
+                                    .replace('\\"', '"')
+                                    .replace('\\\'', "'")
+                                )
+                                try:
+                                    values = ast.literal_eval(fixed_content)
+                                    values = values if isinstance(values, list) else [values]
+                                except:
+                                    # Если все методы парсинга не сработали - возвращаем сырой контент
+                                    return [content] + ["Err"] * (len(column_names) - 1)
+                        
+                        # Приводим все значения к строкам
+                        values = [
+                            str(v).strip() if v is not None else None 
+                            for v in values
+                        ]
+                        
+                        # Дополняем или обрезаем до нужной длины
+                        if len(values) < len(column_names):
+                            values.extend([None] * (len(column_names) - len(values)))
+                        else:
+                            values = values[:len(column_names)]
+                            
+                        return values
                         
                     except Exception as e:
-                        logging.error(f"Error parsing analysis: {str(e)}")
-                        return [None] * len(column_names)
+                        logging.error(f"Error parsing analysis: {str(e)}\nRaw response: {analysis_str}")
+                        return [str(analysis_str)] + ["Err"] * (len(column_names) - 1)
                 
                 # Разбираем ответы модели в новые колонки
                 for idx, row in results_df.iterrows():

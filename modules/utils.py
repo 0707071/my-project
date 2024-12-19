@@ -3,40 +3,11 @@
 # It includes configuration loading, API request handling, and text processing functions.
 
 import os
-import sys
 import re
 import json
-import time
 import asyncio
 import aiohttp
-from itertools import cycle
 from functools import wraps
-import google.generativeai as genai
-
-# Load configuration
-try:
-    with open('config/search_config.json', 'r') as f:
-        config = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError):
-    print("Error reading configuration file. Using default values.")
-    config = {}
-
-# Load API keys
-try:
-    from config.api_keys import api_keys
-except ImportError:
-    print("Error importing api_keys. Make sure the file exists and contains the required keys.")
-    api_keys = {}
-
-# Gemini API settings
-use_gemini = config.get("use_gemini", True)
-gemini_rate_limit = config.get("gemini_rate_limit", 20)  # Requests per minute
-gemini_api_keys = api_keys.get("gemini_api_keys", [])
-
-if not gemini_api_keys:
-    print("Warning: The Gemini API keys list is empty. Make sure keys are properly set in api_keys.py")
-
-gemini_key_cycle = cycle(gemini_api_keys)
 
 
 def clean_domain(domain):
@@ -88,61 +59,9 @@ async def gpt_query_async(messages, timeout=120, max_retries=3):
     Returns:
         tuple: A tuple containing the response content and number of tokens used.
     """
-    if use_gemini:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={next(gemini_key_cycle)}"
-        payload = {
-            "contents": [{"parts": [{"text": msg['content']} for msg in messages]}]
-        }
-
-        for attempt in range(max_retries):
-            try:
-                async with aiohttp.ClientSession() as session:
-                    response = await asyncio.wait_for(
-                        session.post(url, json=payload),
-                        timeout=timeout
-                    )
-                    response_json = await response.json()
-
-                    if 'error' in response_json:
-                        error_message = response_json['error'].get('message', 'Unknown error')
-                        print(f"Gemini API error (attempt {attempt + 1}): {error_message}")
-                        
-                        if "Resource has been exhausted" in error_message:
-                            if attempt < max_retries - 1:
-                                print("Waiting 60 seconds before retrying...")
-                                await asyncio.sleep(60)
-                                continue
-
-                        if attempt == max_retries - 1:
-                            return f"API Error: {error_message}", 0
-                        continue
-
-                    if 'candidates' not in response_json:
-                        print(f"Unexpected response format from Gemini API: {response_json}")
-                        if attempt == max_retries - 1:
-                            return "Unexpected response format from API", 0
-                        continue
-
-                    content = response_json['candidates'][0]['content']['parts'][0]['text']
-                    tokens_used = len(' '.join(msg['content'] for msg in messages).split()) + len(content.split())
-                    return content, tokens_used
-
-            except asyncio.TimeoutError:
-                print(f"Timeout: Request took longer than {timeout} seconds.")
-                if attempt == max_retries - 1:
-                    return "timeout", 0
-            except Exception as e:
-                print(f"Error in Gemini API request: {e}")
-                if attempt == max_retries - 1:
-                    return str(e), 0
-
-            # Wait before the next retry
-            if attempt < max_retries - 1:
-                await asyncio.sleep(5)
-    else:
-        # Placeholder for OpenAI GPT-4 asynchronous version
-        print("Asynchronous version for OpenAI GPT-4 not implemented")
-        return "Not implemented", 0
+    # Placeholder for OpenAI GPT-4 asynchronous version
+    print("Asynchronous version for OpenAI GPT-4 not implemented")
+    return "Not implemented", 0
 
 
 def load_role_description(file_path):
