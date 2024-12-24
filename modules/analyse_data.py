@@ -16,9 +16,9 @@ class RateLimiter:
     Controls the rate of requests to prevent exceeding API limits.
     """
     def __init__(self, max_rate, period=60):
-        self.max_rate = max_rate * 10
+        self.max_rate = max_rate 
         self.period = period
-        self.tokens = max_rate * 10
+        self.tokens = max_rate 
         self.updated_at = time.monotonic()
 
     async def acquire(self):
@@ -54,6 +54,9 @@ async def analyse_data(input_filename, output_filename, prompt_content, parser_c
             model_name=parser_config.get('model', 'gpt-4o-mini'),
             config=parser_config
         )
+        
+        max_rate = parser_config.get('max_rate', 10)  # Значение по умолчанию 10
+        rate_limiter = RateLimiter(max_rate)
         
         # Анализируем каждую статью
         for index, row in df.iterrows():

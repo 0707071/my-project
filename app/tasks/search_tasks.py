@@ -34,7 +34,7 @@ load_dotenv(os.path.join(basedir, '.env'))
 async def analyze_with_retry(text, prompt):
     max_attempts = 3
     llm_client = get_llm_client(
-        model_name="gpt-4o",
+        model_name="gpt-4o-mini",
         config={
             'max_retries': max_attempts,
             'api_keys': os.getenv('OPENAI_API_KEYS', '').split(',')
@@ -157,7 +157,8 @@ def run_search(self, task_id):
                 await run_analyse_data(cleaned_results, analyzed_results, prompt.content, {
                     'model': 'gpt-4o-mini',
                     'api_keys': os.getenv('OPENAI_API_KEYS', '').split(','),
-                    'max_retries': 3
+                    'max_retries': 3,
+                    'max_rate': 500
                 })
             else:
                 raise ValueError("No cleaned data found")
