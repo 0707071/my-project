@@ -107,9 +107,9 @@ openai_endpoints = {
 Example request:
 ```json
 {
-    "text": "Company XYZ announced expansion...",
+    "text": "Your text here",
+    "model": "gpt-4o-mini",
     "prompt": "Analyze this text for business signals...",
-    "model": "gpt-4",
     "temperature": 0.7,
     "max_tokens": 500
 }

@@ -77,7 +77,7 @@ analysis_config = {
     'batch_size': 10,  # items per batch
     'max_retries': 3,
     'timeout': 30,  # seconds
-    'fallback_models': ['gpt-4', 'claude-2']
+    'fallback_models': ['claude-2']
 }
 ```
 
