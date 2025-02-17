@@ -132,6 +132,8 @@ def run_search(self, task_id):
                         articles = await process_search_results(search_results)
                         if articles:
                             df = pd.DataFrame(articles)
+                            # Добавляем поисковый запрос к каждой строке
+                            df['search_query'] = query.strip()
                             # Создаем файл если его нет
                             if os.path.exists(raw_results):
                                 df.to_csv(raw_results, mode='a', header=False, index=False)
@@ -191,11 +193,52 @@ def run_search(self, task_id):
                         # Очищаем от блоков кода
                         clean_str = re.sub(r'```.*?```', '', analysis_str, flags=re.DOTALL)
                         
+                        # Предварительная обработка для списков с переносами
+                        list_pattern = r'\[\s*([^[\]]+?)\s*\]'
+                        def normalize_list(match):
+                            content = match.group(1)
+                            items = re.split(r',\s*', re.sub(r'\s+', ' ', content))
+                            items = [item.strip() for item in items]
+                            return '[' + ', '.join(items) + ']'
+                            
+                        clean_str = re.sub(list_pattern, normalize_list, clean_str, flags=re.DOTALL)
+                        
+                        # Новая предварительная обработка JSON
+                        def normalize_json(json_str: str) -> str:
+                            # Удаляем комментарии
+                            json_str = re.sub(r'//.*$', '', json_str, flags=re.MULTILINE)
+                            json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
+                            
+                            # Исправляем кавычки
+                            # Сначала экранируем существующие двойные кавычки внутри строк
+                            json_str = re.sub(r'(?<!\\)"(?=.*?["\'])', r'\"', json_str)
+                            # Заменяем все типы кавычек на двойные
+                            json_str = (json_str
+                                .replace('"', '"')
+                                .replace('"', '"')
+                                .replace(''', "'")
+                                .replace(''', "'")
+                                .replace("'", '"'))
+                            
+                            # Исправляем переносы строк внутри строковых значений
+                            json_str = re.sub(r':\s*"([^"]*?)\n\s*([^"]*?)"', r': "\1 \2"', json_str)
+                            
+                            # Удаляем запятые перед закрывающими скобками
+                            json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+                            
+                            # Исправляем экранирование
+                            json_str = (json_str
+                                .replace('\\"', '"')
+                                .replace('\\\'', "'")
+                                .replace('\\n', ' ')
+                                .replace('\\r', ' '))
+                            
+                            return json_str
+                        
                         # Ищем список или JSON между скобками
                         list_match = re.search(r'\[(.*?)\]', clean_str, re.DOTALL)
                         json_match = re.search(r'\{(.*?)\}', clean_str, re.DOTALL)
                         
-                        # Если не нашли ни списка, ни JSON - возвращаем сырой ответ
                         if not list_match and not json_match:
                             return [clean_str.strip()] + ["Err"] * (len(column_names) - 1)
                             
@@ -205,15 +248,9 @@ def run_search(self, task_id):
                         elif json_match:
                             content = f"{{{json_match.group(1)}}}"
                             
-                        # Нормализуем кавычки
-                        content = (
-                            content
-                            .replace('"', '"')
-                            .replace('"', '"')
-                            .replace(''', "'")
-                            .replace(''', "'")
-                        )
-                        
+                        # Нормализуем JSON перед парсингом
+                        content = normalize_json(content)
+                            
                         # Пробуем разные методы парсинга
                         try:
                             # Сначала как JSON
@@ -229,21 +266,8 @@ def run_search(self, task_id):
                                 # Затем как Python literal
                                 values = ast.literal_eval(content)
                                 values = values if isinstance(values, list) else [values]
-                                
                             except (SyntaxError, ValueError):
-                                # Если не получилось - пробуем исправить экранирование
-                                fixed_content = (
-                                    content
-                                    .replace('\\n', '\n')
-                                    .replace('\\"', '"')
-                                    .replace('\\\'', "'")
-                                )
-                                try:
-                                    values = ast.literal_eval(fixed_content)
-                                    values = values if isinstance(values, list) else [values]
-                                except:
-                                    # Если все методы парсинга не сработали - возвращаем сырой контент
-                                    return [content] + ["Err"] * (len(column_names) - 1)
+                                return [content] + ["Err"] * (len(column_names) - 1)
                         
                         # Приводим все значения к строкам
                         values = [
@@ -281,7 +305,7 @@ def run_search(self, task_id):
                         for col in column_names:
                             results_df.at[idx, col] = None
                 
-                # Удаляем колонку analysis
+                # Удаляем только колонку analysis, сохраняя search_query
                 results_df = results_df.drop('analysis', axis=1)
                 
                 # Сохраняем Excel
