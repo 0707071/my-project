@@ -190,6 +190,28 @@ def run_search(self, task_id):
                         return [None] * len(column_names)
                         
                     try:
+                        # Если строка уже похожа на список - пробуем парсить напрямую
+                        if analysis_str.strip().startswith('[') and analysis_str.strip().endswith(']'):
+                            try:
+                                values = ast.literal_eval(analysis_str.strip())
+                                if isinstance(values, list):
+                                    # Приводим все значения к строкам
+                                    values = [
+                                        str(v).strip() if v is not None else None 
+                                        for v in values
+                                    ]
+                                    
+                                    # Дополняем или обрезаем до нужной длины
+                                    if len(values) < len(column_names):
+                                        values.extend([None] * (len(column_names) - len(values)))
+                                    else:
+                                        values = values[:len(column_names)]
+                                        
+                                    return values
+                            except:
+                                pass  # Если не получилось - идём к следующим методам парсинга
+                        
+                        # Остальной код парсинга оставляем без изменений
                         # Очищаем от блоков кода
                         clean_str = re.sub(r'```.*?```', '', analysis_str, flags=re.DOTALL)
                         
