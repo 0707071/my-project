@@ -32,6 +32,7 @@ env/
 *.swp
 *.swo
 .DS_Store
+tasks.md
 
 # Logs and databases
 *.log
@@ -68,3 +69,25 @@ celerybeat.pid
 *.local
 local_settings.py
 instance/
+
+# Documentation
+site/
+Karhuno_docs.zip
+karhuno_docs.html
+
+# Local scripts
+start.bat
+stop.bat
+start.sh
+stop.sh
+
+# Parser specific
+parsed_data/
+raw_data/
+*.html
+*.htm
+credentials.yaml
+config.local.yaml
+
+# Alembic
+alembic.ini
