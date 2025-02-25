@@ -36,6 +36,12 @@ class OpenAIClient:
         self.config = config
         self.config['model'] = model_name
         
+        # Устанавливаем API ключ
+        api_keys = config.get('api_keys', [])
+        if not api_keys:
+            raise ValueError("No API keys provided")
+        openai.api_key = api_keys[0]  # Используем первый ключ
+        
     async def get_completion(self, messages: List[Dict[str, str]]) -> str:
         # ВАЖНО: Дополнительная проверка перед вызовом API
         validate_model(self.config['model'])
