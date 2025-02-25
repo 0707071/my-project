@@ -110,11 +110,37 @@
                                     </td>
                                     <td>{{ query.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                                     <td>
-                                        <form method="POST" action="{{ url_for('main.run_client_search', id=client.id) }}" 
-                                              style="display: inline;">
-                                            <input type="hidden" name="search_query_id" value="{{ query.id }}">
-                                            <button type="submit" class="btn btn-sm btn-success">Run Search</button>
-                                        </form>
+                                        <div class="btn-group">
+                                            <form method="POST" action="{{ url_for('main.run_client_search', id=client.id) }}" style="display: inline;">
+                                                <input type="hidden" name="search_query_id" value="{{ query.id }}">
+                                                <input type="hidden" name="mode" value="full">
+                                                <button type="submit" class="btn btn-sm btn-success">Run Search</button>
+                                            </form>
+                                            <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <span class="visually-hidden">Debug options</span>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li>
+                                                    <form method="POST" action="{{ url_for('main.run_client_search', id=client.id) }}" class="dropdown-item-form">
+                                                        <input type="hidden" name="search_query_id" value="{{ query.id }}">
+                                                        <input type="hidden" name="mode" value="search">
+                                                        <button type="submit" class="dropdown-item">
+                                                            <i class="fas fa-bug me-2"></i>Debug: Search & Clean Only
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                                <li>
+                                                    <form method="POST" action="{{ url_for('main.run_client_search', id=client.id) }}" class="dropdown-item-form">
+                                                        <input type="hidden" name="search_query_id" value="{{ query.id }}">
+                                                        <input type="hidden" name="mode" value="analyze">
+                                                        <input type="file" name="cleaned_file" accept=".csv,.xlsx,.xls" style="display: none;" class="cleaned-file-input">
+                                                        <button type="button" class="dropdown-item analyze-btn">
+                                                            <i class="fas fa-bug me-2"></i>Debug: Analyze Only
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
                                         <a href="{{ url_for('main.edit_search_query', id=client.id, query_id=query.id) }}" 
                                            class="btn btn-sm btn-warning">Edit</a>
                                         <form method="POST" action="{{ url_for('main.delete_search_query', id=client.id, query_id=query.id) }}"
@@ -142,4 +168,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
 {% endblock %}

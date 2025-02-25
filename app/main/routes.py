@@ -5,7 +5,7 @@ from app import db
 from app.main.forms import ClientForm, SearchQueryForm, PromptForm
 from app.models.client import Client
 from app.models.search_query import SearchQuery
-from app.tasks.search_tasks import run_search
+from app.tasks.search_tasks import run_search, run_search_and_clean, run_analysis
 from app.models.task import SearchTask
 from app.models.prompt import Prompt
 from app.models.search_result import SearchResult
@@ -91,48 +91,152 @@ def client_search(id):
 @login_required
 def run_client_search(id):
     search_query_id = request.form.get('search_query_id')
+    mode = request.form.get('mode', 'full')  # Добавляем параметр режима
+    
     if not search_query_id:
         flash('No search query selected', 'danger')
         return redirect(url_for('main.client_detail', id=id))
     
     search_query = SearchQuery.query.get_or_404(search_query_id)
     
-    # Получаем активный промпт
-    prompt = Prompt.query.filter_by(
-        client_id=id,
-        is_active=True
-    ).first()
+    # Проверяем нужен ли промпт для выбранного режима
+    prompt = None
+    if mode in ['full', 'analyze']:
+        # Получаем активный промпт
+        prompt = Prompt.query.filter_by(
+            client_id=id,
+            is_active=True
+        ).first()
     
-    if not prompt:
-        flash('No active prompt found', 'danger')
-        return redirect(url_for('main.client_detail', id=id))
-    
-    if not prompt.column_names:
-        flash('Prompt column names not configured', 'danger')
-        return redirect(url_for('main.client_detail', id=id))
+        if not prompt:
+            flash('No active prompt found', 'danger')
+            return redirect(url_for('main.client_detail', id=id))
+            
+        if not prompt.column_names:
+            flash('Prompt column names not configured', 'danger')
+            return redirect(url_for('main.client_detail', id=id))
     
     # Создаем задачу
     task = SearchTask(
         client_id=id,
         search_query_id=search_query_id,
-        prompt_id=prompt.id,
+        prompt_id=prompt.id if prompt else None,
         status='pending'
     )
     db.session.add(task)
     db.session.commit()
     
-    # Запускаем задачу
+    # Запускаем соответствующую задачу
     try:
-        celery_task = run_search.delay(task.id)
-        task.celery_task_id = celery_task.id
-        db.session.commit()
-        print(f"DEBUG: Celery task started: {celery_task.id}")  # Добавляем отладку
+        if mode == 'search':
+            celery_task = run_search_and_clean.delay(task.id)
+        elif mode == 'analyze':
+            # Для анализа нужен файл с данными
+            if 'cleaned_file' not in request.files:
+                db.session.delete(task)
+                db.session.commit()
+                flash('No file uploaded', 'danger')
+                return redirect(url_for('main.client_detail', id=id))
+                
+            file = request.files['cleaned_file']
+            if file.filename == '':
+                db.session.delete(task)
+                db.session.commit()
+                flash('No file selected', 'danger')
+                return redirect(url_for('main.client_detail', id=id))
+                
+            # Проверяем расширение файла
+            allowed_extensions = {'.csv', '.xlsx', '.xls'}
+            file_ext = os.path.splitext(file.filename)[1].lower()
+            if file_ext not in allowed_extensions:
+                db.session.delete(task)
+                db.session.commit()
+                flash('Invalid file type. Please upload CSV or Excel file.', 'danger')
+                return redirect(url_for('main.client_detail', id=id))
+            
+            try:
+                # Создаем директорию для результатов если её нет
+                client_dir = os.path.join('results', str(task.client_id))
+                os.makedirs(client_dir, exist_ok=True)
+                
+                # Сохраняем загруженный файл
+                uploaded_file = os.path.join(client_dir, f'uploaded_{datetime.now().strftime("%Y%m%d_%H%M%S")}{file_ext}')
+                file.save(uploaded_file)
+                
+                # Если это Excel, конвертируем в CSV
+                input_file = uploaded_file
+                if file_ext in {'.xlsx', '.xls'}:
+                    try:
+                        # Для наших файлов достаточно openpyxl
+                        df = pd.read_excel(uploaded_file, engine='openpyxl')
+                        
+                        # Проверяем, что данные загрузились
+                        if df.empty:
+                            raise Exception("Excel file is empty")
+                            
+                        # Сохраняем в CSV
+                        csv_file = os.path.join(client_dir, f'converted_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+                        df.to_csv(csv_file, index=False, encoding='utf-8-sig')
+                        input_file = csv_file
+                        
+                        print(f"Successfully converted Excel to CSV. Rows: {len(df)}, Columns: {list(df.columns)}")
+                        
+                    except Exception as e:
+                        # Если не получилось прочитать как Excel - пробуем как CSV
+                        try:
+                            df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+                            if df.empty:
+                                raise Exception("File is empty")
+                                
+                            # Переименовываем файл с правильным расширением
+                            csv_file = os.path.join(client_dir, f'converted_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+                            os.rename(uploaded_file, csv_file)
+                            input_file = csv_file
+                            print(f"File processed as CSV. Rows: {len(df)}, Columns: {list(df.columns)}")
+                            
+                        except Exception as csv_error:
+                            os.unlink(uploaded_file)  # Удаляем загруженный файл
+                            db.session.delete(task)
+                            db.session.commit()
+                            error_msg = f"Error processing file: {str(e)}. CSV attempt failed: {str(csv_error)}"
+                            print(error_msg)  # Для отладки
+                            flash(error_msg, 'danger')
+                            return redirect(url_for('main.client_detail', id=id))
+                
+                # Запускаем задачу анализа
+                celery_task = run_analysis.delay(task.id, input_file)
+                task.celery_task_id = celery_task.id
+                db.session.commit()
+                
+                return redirect(url_for('main.task_status', task_id=task.id))
+                
+            except Exception as e:
+                # В случае ошибки удаляем задачу и файлы
+                if os.path.exists(uploaded_file):
+                    os.unlink(uploaded_file)
+                if 'csv_file' in locals() and os.path.exists(csv_file):
+                    os.unlink(csv_file)
+                db.session.delete(task)
+                db.session.commit()
+                flash(f'Error processing file: {str(e)}', 'danger')
+                return redirect(url_for('main.client_detail', id=id))
+                
+        else:  # full
+            celery_task = run_search.delay(task.id)
+                
+            task.celery_task_id = celery_task.id
+            db.session.commit()
+            print(f"DEBUG: Celery task started: {celery_task.id}")
+        
+        return redirect(url_for('main.task_status', task_id=task.id))
+        
     except Exception as e:
-        print(f"ERROR starting Celery task: {str(e)}")  # Добавляем отладку ошибок
+        print(f"ERROR starting Celery task: {str(e)}")
+        # В случае ошибки удаляем задачу
+        db.session.delete(task)
+        db.session.commit()
         flash('Error starting search task', 'danger')
         return redirect(url_for('main.client_detail', id=id))
-    
-    return redirect(url_for('main.task_status', task_id=task.id))
 
 @bp.route('/task/<int:task_id>')
 @login_required
@@ -268,6 +372,23 @@ def task_results(task_id):
     task = SearchTask.query.get_or_404(task_id)
     results = AnalysisResult.query.filter_by(task_id=task_id).all()
     
+    # Преобразуем объекты в словари для JSON сериализации
+    results_json = [
+        {
+            'id': r.id,
+            'task_id': r.task_id,
+            'prompt_id': r.prompt_id,
+            'title': r.title,
+            'url': r.url,
+            'content': r.content,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+            # Добавляем все дополнительные поля из анализа
+            **{col: getattr(r, col) for col in r.__table__.columns.keys() 
+               if col not in ['id', 'task_id', 'prompt_id', 'title', 'url', 'content', 'created_at']}
+        }
+        for r in results
+    ]
+    
     # Если запрошено скачивание
     if request.args.get('download'):
         if task.result_file and os.path.exists(os.path.join(current_app.root_path, '..', task.result_file)):
@@ -283,7 +404,7 @@ def task_results(task_id):
     # Для отображения страницы
     return render_template('task/results.html', 
                          task=task,
-                         results=results,
+                         results=results_json,
                          min_potential=request.args.get('min_potential', 0, type=int))
 
 @bp.route('/task/<int:task_id>/exports')
@@ -302,9 +423,9 @@ def export_task_results(task_id):
     if task.result_file and os.path.exists(os.path.join(current_app.root_path, '..', task.result_file)):
         return send_file(
             os.path.join(current_app.root_path, '..', task.result_file),
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            mimetype='text/csv',
             as_attachment=True,
-            download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
         )
     
     # Получаем результаты из БД
@@ -313,46 +434,17 @@ def export_task_results(task_id):
         flash('No results found', 'error')
         return redirect(url_for('main.task_results', task_id=task_id))
     
-    # Создаем Excel
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Преобразуем в DataFrame
-        df = pd.DataFrame([r.to_dict() for r in results])
-        
-        # Записываем с форматированием
-        df.to_excel(writer, index=False)
-        
-        # Получаем рабочий лист
-        worksheet = writer.sheets['Sheet1']
-        
-        # Форматирование
-        worksheet.row_dimensions[1].height = 30  # Заголовок
-        for i in range(2, len(df) + 2):
-            worksheet.row_dimensions[i].height = 75
-        
-        for column in worksheet.columns:
-            max_length = 0
-            for cell in column:
-                try:
-                    max_length = max(max_length, len(str(cell.value)))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 150)
-            worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
-            
-            # Форматирование ячеек
-            for cell in column:
-                cell.alignment = openpyxl.styles.Alignment(
-                    wrap_text=True,
-                    vertical='top'
-                )
-    
+    # Создаем CSV в памяти
+    output = StringIO()
+    df = pd.DataFrame([r.to_dict() for r in results])
+    df.to_csv(output, index=False, encoding='utf-8-sig')
     output.seek(0)
+    
     return send_file(
         output,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimetype='text/csv',
         as_attachment=True,
-        download_name=f'analysis_results_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        download_name=f'analysis_results_{datetime.now().strftime("%Y%m%d")}.csv'
     )
 
 @bp.route('/debug')

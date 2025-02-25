@@ -1,5 +1,7 @@
 import openai
 from typing import Dict, Any, List
+import os
+import logging
 
 # ВАЖНО: В проекте используется только модель gpt-4o-mini
 # Не заменять на gpt-4, gpt-4-turbo или другие модели без явного разрешения техлида
@@ -38,8 +40,13 @@ class OpenAIClient:
         # ВАЖНО: Дополнительная проверка перед вызовом API
         validate_model(self.config['model'])
         
-        response = await openai.chat.completions.create(
-            model=self.config['model'],  # Используется только gpt-4o-mini
-            messages=messages
-        )
-        return response.choices[0].message.content
+        try:
+            response = await openai.chat.completions.create(
+                model=self.config['model'],  # Используется только gpt-4o-mini
+                messages=messages
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            error_msg = f"Error in OpenAI API call: {str(e)}"
+            logging.error(error_msg)
+            return error_msg  # Возвращаем текст ошибки как "сырой" ответ
