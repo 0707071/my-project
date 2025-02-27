@@ -4,6 +4,7 @@ import json
 import ast
 from typing import List, Dict, Any
 from modules.llm_clients import get_llm_client
+from app.websockets import send_task_log
 
 def parse_analysis(analysis_str: str, column_names: List[str]) -> List[str]:
     """
@@ -45,7 +46,7 @@ def parse_analysis(analysis_str: str, column_names: List[str]) -> List[str]:
         logging.error(f"Error parsing analysis: {str(e)}\nRaw response: {analysis_str}")
         return [str(analysis_str)] + ["Err"] * (len(column_names) - 1)
 
-async def analyze_data(input_filename: str, output_filename: str, prompt_content: str, config: Dict[str, Any]) -> None:
+async def analyze_data(input_filename: str, output_filename: str, prompt_content: str, config: Dict[str, Any], task_id: int = None) -> None:
     """
     Анализирует данные с помощью LLM.
     При ошибках в ответе модели сохраняет сырой ответ.
@@ -63,6 +64,7 @@ async def analyze_data(input_filename: str, output_filename: str, prompt_content
             config=config
         )
         
+        total_articles = len(df)
         # Анализируем каждую статью
         for index, row in df.iterrows():
             try:
@@ -83,7 +85,11 @@ async def analyze_data(input_filename: str, output_filename: str, prompt_content
                     # Сохраняем ответ как есть, даже если это не JSON
                     # Парсинг будет выполнен позже
                     df.at[index, 'analysis'] = response
-                    logging.info(f"Analyzed article {index + 1}")
+                    
+                    # Обновляем прогресс
+                    if task_id:
+                        progress = int((index + 1) / total_articles * 100)
+                        send_task_log(task_id, f"Analyzed article {index + 1}/{total_articles}", 'analyze', 66 + progress // 3, progress)
                     
                 except Exception as e:
                     error_msg = f"Error getting model response: {str(e)}"

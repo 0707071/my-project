@@ -4,7 +4,7 @@
 cleanup() {
     echo "Cleaning up processes..."
     pkill -9 -f celery
-    pkill -9 -f "flask run"
+    pkill -9 -f "python run.py"  # Изменено для нового процесса
     rm -f logs/celery.pid
     rm -f logs/*.pid
     sleep 2  # Даем время на очистку процессов
@@ -45,18 +45,25 @@ start_redis() {
     echo "Redis is running"
 }
 
-# Функция для запуска Flask
+# Функция для запуска Flask с Socket.IO
 start_flask() {
-    echo "Starting Flask..."
-    export FLASK_APP=run.py
-    export FLASK_ENV=development
-    flask run --host=0.0.0.0 --port=5000 &
-    sleep 2
-    if ! pgrep -f "flask run" > /dev/null; then
-        echo "Failed to start Flask"
-        exit 1
-    fi
-    echo "Flask started successfully"
+    echo "Starting Flask with Socket.IO..."
+    python run.py > logs/flask.log 2>&1 &
+    local flask_pid=$!
+    echo $flask_pid > logs/flask.pid
+    
+    # Ждем запуска
+    for i in {1..10}; do
+        if curl -s http://localhost:5000 > /dev/null; then
+            echo "Flask started successfully (PID: $flask_pid)"
+            return 0
+        fi
+        echo "Waiting for Flask to start... ($i/10)"
+        sleep 1
+    done
+
+    echo "ERROR: Flask failed to start!"
+    return 1
 }
 
 # Функция для запуска Celery
@@ -93,7 +100,7 @@ check_requirements
 cleanup
 
 # Проверяем, что все процессы точно убиты
-if pgrep -f celery > /dev/null || pgrep -f "flask run" > /dev/null; then
+if pgrep -f celery > /dev/null || pgrep -f "python run.py" > /dev/null; then
     echo "Failed to kill all processes"
     exit 1
 fi

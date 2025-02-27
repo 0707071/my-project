@@ -8,7 +8,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from app.websockets import socketio, init_websockets
-from flask_socketio import SocketIO
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -45,8 +44,8 @@ def create_app():
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
     
-    # Initialize WebSocket with correct settings
-    socketio.init_app(app, async_mode=None, logger=True, engineio_logger=True)
+    # Initialize WebSocket
+    init_websockets(app)
     
     # Register blueprints
     from app.auth import bp as auth_bp
