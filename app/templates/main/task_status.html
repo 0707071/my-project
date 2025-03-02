@@ -190,6 +190,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Обновляем общий прогресс
         if (data.progress !== null && data.progress !== undefined) {
+            console.log(`Updating total progress: ${data.progress}%`);
             const totalProgressBar = document.getElementById('totalProgress');
             totalProgressBar.style.width = data.progress + '%';
             totalProgressBar.textContent = data.progress + '%';
@@ -197,10 +198,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Обновляем прогресс этапа
         if (data.stage && data.stage_progress !== null && data.stage_progress !== undefined) {
+            console.log(`Updating ${data.stage} progress: ${data.stage_progress}%`);
             const stageProgressBar = document.getElementById(data.stage + 'Progress');
             if (stageProgressBar) {
                 stageProgressBar.style.width = data.stage_progress + '%';
                 stageProgressBar.textContent = data.stage_progress + '%';
+            } else {
+                console.error(`Progress bar element for stage "${data.stage}" not found!`);
+                console.log('Available progress bars:', 
+                    ['searchProgress', 'cleanProgress', 'analyzeProgress'].map(id => 
+                        `${id}: ${document.getElementById(id) ? 'found' : 'not found'}`
+                    )
+                );
             }
         }
         

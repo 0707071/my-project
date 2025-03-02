@@ -165,7 +165,7 @@ def run_search(self, task_id):
             
             if os.path.exists(raw_results):
                 df = pd.read_csv(raw_results)
-                df_cleaned = clean_data(df)
+                df_cleaned = clean_data(df, task_id)
                 df_cleaned.to_csv(cleaned_results, index=False)
                 send_task_log(task_id, "Data cleaning completed", 'clean', 66, 100)
             else:
@@ -182,8 +182,7 @@ def run_search(self, task_id):
                     'api_keys': os.getenv('OPENAI_API_KEYS', '').split(','),
                     'max_retries': 3,
                     'max_rate': 500
-                })
-                send_task_log(task_id, "Analysis completed", 'analyze', 100, 100)
+                }, task_id)
             else:
                 raise ValueError("No cleaned data found")
 
@@ -259,7 +258,12 @@ def run_search_and_clean(self, task_id):
             cleaned_results = os.path.join(client_dir, 'search_results_cleaned.csv')
             
             # 1. Поиск и сохранение статей
-            for query in search_query.main_phrases.split('\n'):
+            search_task.stage = 'search'
+            db.session.commit()
+            send_task_log(task_id, "Starting search...", 'search', 0, 0)
+            
+            total_queries = len(search_query.main_phrases.split('\n'))
+            for idx, query in enumerate(search_query.main_phrases.split('\n'), 1):
                 try:
                     search_results = await fetch_xmlstock_search_results(
                         query.strip(),
@@ -284,6 +288,11 @@ def run_search_and_clean(self, task_id):
                                 df.to_csv(raw_results, mode='a', header=False, index=False)
                             else:
                                 df.to_csv(raw_results, index=False)
+                    
+                    # Обновляем прогресс поиска
+                    search_progress = int((idx / total_queries) * 100)
+                    send_task_log(task_id, f"Processed query {idx}/{total_queries}", 'search', search_progress // 3, search_progress)
+                    
                 except Exception as e:
                     send_task_log(task_id, f"Error: {str(e)}", 'search')
                     continue
@@ -292,10 +301,15 @@ def run_search_and_clean(self, task_id):
                 raise ValueError("No search results found for any query")
 
             # 2. Очистка данных
+            search_task.stage = 'clean'
+            db.session.commit()
+            send_task_log(task_id, "Starting data cleaning...", 'clean', 33, 0)
+            
             if os.path.exists(raw_results):
                 df = pd.read_csv(raw_results)
-                df_cleaned = clean_data(df)
+                df_cleaned = clean_data(df, task_id)
                 df_cleaned.to_csv(cleaned_results, index=False)
+                send_task_log(task_id, "Data cleaning completed", 'clean', 66, 100)
             else:
                 raise ValueError("No search results found")
 

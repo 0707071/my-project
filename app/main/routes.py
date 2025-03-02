@@ -108,13 +108,13 @@ def run_client_search(id):
             is_active=True
         ).first()
     
-    if not prompt:
-        flash('No active prompt found', 'danger')
-        return redirect(url_for('main.client_detail', id=id))
+        if not prompt:
+            flash('No active prompt found', 'danger')
+            return redirect(url_for('main.client_detail', id=id))
     
-    if not prompt.column_names:
-        flash('Prompt column names not configured', 'danger')
-        return redirect(url_for('main.client_detail', id=id))
+        if not prompt.column_names:
+            flash('Prompt column names not configured', 'danger')
+            return redirect(url_for('main.client_detail', id=id))
     
     # Создаем задачу
     task = SearchTask(
@@ -130,6 +130,8 @@ def run_client_search(id):
     try:
         if mode == 'search':
             celery_task = run_search_and_clean.delay(task.id)
+            task.celery_task_id = celery_task.id
+            db.session.commit()
         elif mode == 'analyze':
             # Для анализа нужен файл с данными
             if 'cleaned_file' not in request.files:
@@ -223,7 +225,6 @@ def run_client_search(id):
                 
         else:  # full
             celery_task = run_search.delay(task.id)
-                
             task.celery_task_id = celery_task.id
             db.session.commit()
             print(f"DEBUG: Celery task started: {celery_task.id}")

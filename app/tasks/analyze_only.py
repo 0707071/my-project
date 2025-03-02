@@ -65,6 +65,9 @@ async def analyze_data(input_filename: str, output_filename: str, prompt_content
         )
         
         total_articles = len(df)
+        if task_id:
+            send_task_log(task_id, f"Starting analysis of {total_articles} articles", 'analyze', 66, 0)
+            
         # Анализируем каждую статью
         for index, row in df.iterrows():
             try:
@@ -89,12 +92,20 @@ async def analyze_data(input_filename: str, output_filename: str, prompt_content
                     # Обновляем прогресс
                     if task_id:
                         progress = int((index + 1) / total_articles * 100)
-                        send_task_log(task_id, f"Analyzed article {index + 1}/{total_articles}", 'analyze', 66 + progress // 3, progress)
+                        send_task_log(
+                            task_id, 
+                            f"Analyzed article {index + 1}/{total_articles}", 
+                            'analyze', 
+                            66 + progress // 3,  # Общий прогресс
+                            progress  # Прогресс этапа
+                        )
                     
                 except Exception as e:
                     error_msg = f"Error getting model response: {str(e)}"
                     df.at[index, 'analysis'] = error_msg
                     logging.error(f"Article {index + 1}: {error_msg}")
+                    if task_id:
+                        send_task_log(task_id, error_msg, 'analyze')
                 
                 # Сохраняем каждые 3 статьи
                 if (index + 1) % 3 == 0:
@@ -104,11 +115,18 @@ async def analyze_data(input_filename: str, output_filename: str, prompt_content
                 error_msg = f"Error analyzing article: {str(e)}"
                 df.at[index, 'analysis'] = error_msg
                 logging.error(f"Article {index}: {error_msg}")
+                if task_id:
+                    send_task_log(task_id, error_msg, 'analyze')
                 df.to_csv(output_filename, index=False, encoding='utf-8-sig')
         
         # Финальное сохранение
         df.to_csv(output_filename, index=False, encoding='utf-8-sig')
+        if task_id:
+            send_task_log(task_id, "Analysis completed", 'analyze', 100, 100)
         
     except Exception as e:
-        logging.error(f"Critical error in analysis: {str(e)}")
+        error_msg = f"Critical error in analysis: {str(e)}"
+        logging.error(error_msg)
+        if task_id:
+            send_task_log(task_id, error_msg, 'analyze')
         raise 
