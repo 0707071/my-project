@@ -153,6 +153,10 @@
                                             {% if last_task %}
                                                 <a href="{{ url_for('main.task_results', task_id=last_task.id) }}" 
                                                    class="btn btn-sm btn-primary">View Results</a>
+                                                <a href="{{ url_for('main.export_task_results_excel', task_id=last_task.id) }}" 
+                                                   class="btn btn-sm btn-success">
+                                                    <i class="fas fa-file-excel"></i> Excel
+                                                </a>
                                             {% endif %}
                                         {% endif %}
                                     </td>
