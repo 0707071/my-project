@@ -34,34 +34,18 @@
     .log-entry.clean { color: #ffc107; }
     .log-entry.analyze { color: #198754; }
     
+    /* Скрываем индикатор статуса соединения */
     .connection-status {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        z-index: 1000;
-    }
-    .connection-status.connected { 
-        background: #198754;
-        color: white;
-    }
-    .connection-status.disconnected { 
-        background: #dc3545;
-        color: white;
-    }
-    .connection-status.connecting { 
-        background: #ffc107;
-        color: black;
+        display: none;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
-    <div id="connectionStatus" class="connection-status disconnected">
-        Отключено
+    <!-- Скрытый индикатор статуса (оставляем в DOM, но не показываем) -->
+    <div id="connectionStatus" class="connection-status">
+        Disconnected
     </div>
 
     <h2>Task Status</h2>
@@ -141,11 +125,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const maxReconnectAttempts = 5;
     
     function updateConnectionStatus(status, message) {
+        // Обновляем текст, но не показываем
         connectionStatus.className = 'connection-status ' + status;
         connectionStatus.textContent = message;
     }
     
-    updateConnectionStatus('connecting', 'Подключение...');
+    updateConnectionStatus('connecting', 'Connecting...');
     
     // Инициализируем сокет с новыми настройками
     const socket = io({
@@ -163,36 +148,37 @@ document.addEventListener('DOMContentLoaded', function() {
     // Обработчики событий сокета
     socket.on('connect', function() {
         console.log('Connected to Socket.IO');
-        updateConnectionStatus('connected', 'Подключено');
+        updateConnectionStatus('connected', 'Connected');
         reconnectAttempts = 0;
         socket.emit('join', {task_id: taskId});
     });
 
     socket.on('connect_error', function(error) {
         console.error('Socket.IO connection error:', error);
-        updateConnectionStatus('disconnected', 'Ошибка подключения');
+        updateConnectionStatus('disconnected', 'Connection error');
         reconnectAttempts++;
         
         if (reconnectAttempts >= maxReconnectAttempts) {
-            updateConnectionStatus('disconnected', 'Не удалось подключиться');
+            updateConnectionStatus('disconnected', 'Failed to connect');
             socket.disconnect();
         }
     });
 
     socket.on('disconnect', function() {
         console.log('Disconnected from Socket.IO');
-        updateConnectionStatus('disconnected', 'Отключено');
+        updateConnectionStatus('disconnected', 'Disconnected');
     });
 
     socket.on('reconnecting', function(attemptNumber) {
         console.log('Attempting to reconnect:', attemptNumber);
-        updateConnectionStatus('connecting', `Переподключение (${attemptNumber}/${maxReconnectAttempts})...`);
+        updateConnectionStatus('connecting', `Reconnecting (${attemptNumber}/${maxReconnectAttempts})...`);
     });
 
     socket.on('join_response', function(data) {
         console.log('Join response:', data);
         if (data.status === 'joined') {
-            addLogEntry('System', `Подключено к комнате: ${data.room}`);
+            // Не добавляем сообщение о подключении к комнате в логи
+            // addLogEntry('System', `Connected to room: ${data.room}`);
         }
     });
 
