@@ -110,18 +110,21 @@
 
     <!-- Кнопки действий -->
     <div class="mt-4">
-        {% if task.status == 'completed' %}
-            <a href="{{ url_for('main.task_results', task_id=task.id) }}" 
-               class="btn btn-success">View Results</a>
-            <a href="{{ url_for('main.export_task_results', task_id=task.id) }}" 
-               class="btn btn-primary">
-                <i class="fas fa-download"></i> Download CSV
-            </a>
-            <a href="{{ url_for('main.export_task_results_excel', task_id=task.id) }}" 
-               class="btn btn-success">
-                <i class="fas fa-file-excel"></i> Download Excel
-            </a>
-        {% endif %}
+        <!-- Кнопки скачивания - всегда видимы, активируются при завершении -->
+        <a href="{{ url_for('main.export_task_results', task_id=task.id) }}" 
+           class="btn btn-primary {% if task.status != 'completed' and task.progress != 100 %}disabled{% endif %}"
+           id="downloadCsvBtn"
+           {% if task.status != 'completed' and task.progress != 100 %}aria-disabled="true"{% endif %}>
+            <i class="fas fa-download"></i> Download CSV
+        </a>
+        <a href="{{ url_for('main.export_task_results_excel', task_id=task.id) }}" 
+           class="btn btn-success {% if task.status != 'completed' and task.progress != 100 %}disabled{% endif %}"
+           id="downloadExcelBtn"
+           {% if task.status != 'completed' and task.progress != 100 %}aria-disabled="true"{% endif %}>
+            <i class="fas fa-file-excel"></i> Download Excel
+        </a>
+        
+        <!-- Кнопка возврата к клиенту - всегда активна -->
         <a href="{{ url_for('main.client_detail', id=task.client_id) }}" 
            class="btn btn-secondary">Back to Client</a>
     </div>
@@ -202,6 +205,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const totalProgressBar = document.getElementById('totalProgress');
             totalProgressBar.style.width = data.progress + '%';
             totalProgressBar.textContent = data.progress + '%';
+            
+            // Активируем кнопки скачивания, если прогресс достиг 100%
+            if (data.progress === 100) {
+                console.log('Task completed, enabling download buttons');
+                enableDownloadButtons();
+            }
         }
         
         // Обновляем прогресс этапа
@@ -224,13 +233,37 @@ document.addEventListener('DOMContentLoaded', function() {
         // Добавляем лог
         if (data.message) {
             addLogEntry(data.stage || 'System', data.message);
+            
+            // Активируем кнопки при сообщении о завершении
+            if (data.message.includes('completed') || data.message.includes('завершен')) {
+                console.log('Completion message received, enabling download buttons');
+                enableDownloadButtons();
+            }
         }
         
         // Если задача завершена, обновляем страницу
         if (data.status === 'completed') {
+            console.log('Task status is completed, enabling buttons and reloading page');
+            enableDownloadButtons();
             setTimeout(() => location.reload(), 1000);
         }
     });
+    
+    // Функция для активации кнопок скачивания
+    function enableDownloadButtons() {
+        const csvBtn = document.getElementById('downloadCsvBtn');
+        const excelBtn = document.getElementById('downloadExcelBtn');
+        
+        if (csvBtn) {
+            csvBtn.classList.remove('disabled');
+            csvBtn.removeAttribute('aria-disabled');
+        }
+        
+        if (excelBtn) {
+            excelBtn.classList.remove('disabled');
+            excelBtn.removeAttribute('aria-disabled');
+        }
+    }
     
     function addLogEntry(type, message) {
         const logEntry = document.createElement('div');

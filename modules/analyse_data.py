@@ -8,7 +8,7 @@ import asyncio
 import time
 import logging
 from modules.utils import load_role_description
-from llm_clients import get_llm_client  # Import function to get LLM client
+from modules.llm_clients import get_llm_client  # Обновлённый импорт
 from app.websockets import send_task_log  # Импортируем функцию отправки сообщений
 
 class RateLimiter:
