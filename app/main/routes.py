@@ -113,19 +113,19 @@ def run_client_search(id):
     
     # Проверяем нужен ли промпт для выбранного режима
     if mode in ['full', 'analyze']:
-        # Получаем активный промпт
+    # Получаем активный промпт
         prompt = Prompt.query.filter_by(
             client_id=id,
             is_active=True
-        ).first()
+    ).first()
     
-        if not prompt:
-            flash('No active prompt found', 'danger')
-            return redirect(url_for('main.client_detail', id=id))
+    if not prompt:
+        flash('No active prompt found', 'danger')
+        return redirect(url_for('main.client_detail', id=id))
     
-        if not prompt.column_names:
-            flash('Prompt column names not configured', 'danger')
-            return redirect(url_for('main.client_detail', id=id))
+    if not prompt.column_names:
+        flash('Prompt column names not configured', 'danger')
+        return redirect(url_for('main.client_detail', id=id))
     
     # Создаем задачу
     task = SearchTask(
@@ -535,8 +535,8 @@ def export_task_results_excel(task_id):
         return redirect(url_for('main.task_results', task_id=task_id))
     
     # Преобразуем результаты в DataFrame
-    df = pd.DataFrame([r.to_dict() for r in results])
-    
+        df = pd.DataFrame([r.to_dict() for r in results])
+        
     # Создаем Excel в памяти
     excel_buffer = BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
