@@ -84,6 +84,13 @@ def parse_relative_date(date_str):
                 return datetime.now() - timedelta(**delta)
         return None
 
+def get_task_dir(task_id: int, client_id: int) -> str:
+    """Creates and returns unique directory path for task results"""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    task_dir = os.path.join('results', str(client_id), f"{timestamp}_task{task_id}")
+    os.makedirs(task_dir, exist_ok=True)
+    return task_dir
+
 @celery.task(bind=True)
 def run_search(self, task_id):
     """Асинхронная задача для выполнения поиска и анализа"""
@@ -106,14 +113,13 @@ def run_search(self, task_id):
             if not prompt:
                 raise ValueError("No active prompt found")
 
-            # Создаем директории для результатов
-            client_dir = os.path.join('results', str(search_task.client_id))
-            os.makedirs(client_dir, exist_ok=True)
+            # Создаем уникальную директорию для результатов задачи
+            task_dir = get_task_dir(task_id, search_task.client_id)
 
-            # Пути к файлам
-            raw_results = os.path.join(client_dir, 'search_results.csv')
-            cleaned_results = os.path.join(client_dir, 'search_results_cleaned.csv')
-            analyzed_results = os.path.join(client_dir, 'search_results_analyzed.csv')
+            # Пути к файлам теперь в уникальной директории
+            raw_results = os.path.join(task_dir, 'search_results.csv')
+            cleaned_results = os.path.join(task_dir, 'search_results_cleaned.csv')
+            analyzed_results = os.path.join(task_dir, 'search_results_analyzed.csv')
             
             # 1. Поиск и сохранение статей
             search_task.stage = 'search'
@@ -214,8 +220,8 @@ def run_search(self, task_id):
                 # Удаляем только колонку analysis, сохраняя search_query
                 results_df = results_df.drop('analysis', axis=1)
                 
-                # Сохраняем результаты в CSV
-                formatted_results = os.path.join(client_dir, f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+                # При сохранении финального результата используем ту же директорию
+                formatted_results = os.path.join(task_dir, f"results_final.csv")
                 results_df.to_csv(formatted_results, index=False, encoding='utf-8-sig')
 
                 # Обновляем задачу
@@ -249,13 +255,12 @@ def run_search_and_clean(self, task_id):
             if not search_query:
                 raise ValueError("Search query not found")
 
-            # Создаем директории для результатов
-            client_dir = os.path.join('results', str(search_task.client_id))
-            os.makedirs(client_dir, exist_ok=True)
+            # Создаем уникальную директорию для результатов задачи
+            task_dir = get_task_dir(task_id, search_task.client_id)
 
             # Пути к файлам
-            raw_results = os.path.join(client_dir, 'search_results.csv')
-            cleaned_results = os.path.join(client_dir, 'search_results_cleaned.csv')
+            raw_results = os.path.join(task_dir, 'search_results.csv')
+            cleaned_results = os.path.join(task_dir, 'search_results_cleaned.csv')
             
             # 1. Поиск и сохранение статей
             search_task.stage = 'search'
@@ -347,33 +352,25 @@ def run_analysis(self, task_id, cleaned_file=None):
             if not prompt:
                 raise ValueError("No active prompt found")
 
-            # Создаем директории для результатов
-            client_dir = os.path.join('results', str(search_task.client_id))
-            os.makedirs(client_dir, exist_ok=True)
-
-            # Определяем входной файл
-            if cleaned_file and os.path.exists(cleaned_file):
-                input_file = cleaned_file
-            else:
-                input_file = os.path.join(client_dir, 'search_results_cleaned.csv')
-                if not os.path.exists(input_file):
-                    raise ValueError("No cleaned data file found")
-
-            # Путь для результатов анализа
-            analyzed_results = os.path.join(client_dir, 'search_results_analyzed.csv')
+            # Создаем уникальную директорию для результатов анализа
+            task_dir = get_task_dir(task_id, search_task.client_id)
             
-            # Запускаем анализ с новым модулем
-            await analyze_data(input_file, analyzed_results, prompt.content, {
-                    'model': 'gpt-4o-mini',
-                    'api_keys': os.getenv('OPENAI_API_KEYS', '').split(','),
-                    'max_retries': 3,
-                    'max_rate': 500
+            # Определяем выходной файл в новой директории
+            analyzed_results = os.path.join(task_dir, 'search_results_analyzed.csv')
+            
+            # Запускаем анализ
+            await analyze_data(cleaned_file, analyzed_results, prompt.content, {
+                'model': 'gpt-4o-mini',
+                'api_keys': os.getenv('OPENAI_API_KEYS', '').split(','),
+                'max_retries': 3,
+                'max_rate': 500
             }, task_id)
 
-            # Форматируем результаты
+            # Форматируем и сохраняем результаты в той же директории
+            formatted_results = os.path.join(task_dir, f"results_final.csv")
             if os.path.exists(analyzed_results):
                 # Читаем исходные данные и результаты анализа
-                input_df = pd.read_csv(input_file)
+                input_df = pd.read_csv(cleaned_file)
                 results_df = pd.read_csv(analyzed_results)
                 
                 # Получаем названия колонок из промпта
@@ -426,7 +423,6 @@ def run_analysis(self, task_id, cleaned_file=None):
                 results_df = results_df.drop('analysis', axis=1)
                 
                 # Сохраняем результаты в CSV
-                formatted_results = os.path.join(client_dir, f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
                 results_df.to_csv(formatted_results, index=False, encoding='utf-8-sig')
                 logging.info(f"Saved formatted results to {formatted_results}")
 

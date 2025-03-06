@@ -5,6 +5,7 @@ import ast
 from typing import List, Dict, Any
 from modules.llm_clients import get_llm_client
 from app.websockets import send_task_log
+import os
 
 def parse_analysis(analysis_str: str, column_names: List[str]) -> List[str]:
     """
@@ -58,6 +59,9 @@ async def analyze_data(input_filename: str, output_filename: str, prompt_content
             logging.warning("No data to analyze")
             return
         
+        # Создаем директорию для output_filename если её нет
+        os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+        
         # Получаем LLM клиент
         llm_client = get_llm_client(
             model_name=config.get('model', 'gpt-4o-mini'),
@@ -107,7 +111,7 @@ async def analyze_data(input_filename: str, output_filename: str, prompt_content
                     if task_id:
                         send_task_log(task_id, error_msg, 'analyze')
                 
-                # Сохраняем каждые 3 статьи
+                # Сохраняем каждые 3 статьи в тот же файл
                 if (index + 1) % 3 == 0:
                     df.to_csv(output_filename, index=False, encoding='utf-8-sig')
             

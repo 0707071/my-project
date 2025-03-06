@@ -115,8 +115,8 @@ def run_client_search(id):
     if mode in ['full', 'analyze']:
     # Получаем активный промпт
         prompt = Prompt.query.filter_by(
-            client_id=id,
-            is_active=True
+        client_id=id,
+        is_active=True
     ).first()
     
     if not prompt:
