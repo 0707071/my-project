@@ -421,3 +421,8 @@ def delete_search_query(id, query_id):
 @login_required
 def parser():
     return render_template('main/parser.html')
+
+@bp.route('/social-media')
+@login_required
+def social_media_parser():
+    return render_template('main/social_media_parser.html')
