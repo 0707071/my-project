@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Social Media Parser{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Social Media Parser</h1>
+
+    <!-- Back Button -->
+    <a href="{{ url_for('main.index') }}" class="btn btn-secondary mb-3">Back to Homepage</a>
+
+    <!-- Progress Bars -->
+    <div class="mb-4">
+        <h5>Stage 1: Initialization</h5>
+        <div class="progress">
+            <div class="progress-bar" id="stage1-bar" style="width: 0%;"></div>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <h5>Stage 2: Processing</h5>
+        <div class="progress">
+            <div class="progress-bar" id="stage2-bar" style="width: 0%;"></div>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <h5>Stage 3: Finalization</h5>
+        <div class="progress">
+            <div class="progress-bar" id="stage3-bar" style="width: 0%;"></div>
+        </div>
+    </div>
+
+    <div class="log-container">
+        <h5>Logs</h5>
+        <textarea id="log" readonly></textarea>
+    </div>
+
+    <button id="start-button" class="btn btn-primary mt-3">Start Parsing</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('start-button').addEventListener('click', startParsing);
+
+    function startParsing() {
+        logMessage("Parsing started...");
+
+        // Simulate Stage 1
+        updateProgress('stage1-bar', 100, "Stage 1 completed: Initialization.");
+        
+        // Simulate Stage 2
+        setTimeout(() => {
+            updateProgress('stage2-bar', 100, "Stage 2 completed: Processing.");
+            
+            // Simulate Stage 3
+            setTimeout(() => {
+                updateProgress('stage3-bar', 100, "Stage 3 completed: Finalization.");
+                logMessage("Parsing completed successfully!");
+            }, 1000);
+        }, 1000);
+    }
+
+    function updateProgress(barId, percentage, message) {
+        const bar = document.getElementById(barId);
+        bar.style.width = percentage + '%';
+        logMessage(message);
+    }
+
+    function logMessage(message) {
+        const log = document.getElementById('log');
+        log.value += message + '\n';
+        log.scrollTop = log.scrollHeight; // Auto-scroll to the bottom
+    }
+</script>
+{% endblock %}
