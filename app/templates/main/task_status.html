@@ -4,7 +4,6 @@
 
 {% block head %}
 {{ super() }}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <style>
     .progress { 
         height: 20px; 
@@ -34,19 +33,29 @@
     .log-entry.search { color: #0dcaf0; }
     .log-entry.clean { color: #ffc107; }
     .log-entry.analyze { color: #198754; }
+    
+    /* Скрываем индикатор статуса соединения */
+    .connection-status {
+        display: none;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
+    <!-- Скрытый индикатор статуса (оставляем в DOM, но не показываем) -->
+    <div id="connectionStatus" class="connection-status">
+        Disconnected
+    </div>
+
     <h2>Task Status</h2>
     
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Progress</h5>
             <div class="progress mb-3">
-                <div class="progress-bar" role="progressbar" style="width: {{ task.progress }}%;" 
-                     id="totalProgress">{{ task.progress }}%</div>
+                <div class="progress-bar" role="progressbar" style="width: {{ task.progress if task.progress else 0 }}%;" 
+                     id="totalProgress">{{ task.progress if task.progress else 0 }}%</div>
             </div>
             
             <!-- Этапы с отдельными прогресс-барами -->
@@ -54,19 +63,19 @@
                 <div class="stage mb-2">
                     <label>Search</label>
                     <div class="progress">
-                        <div class="progress-bar bg-info" role="progressbar" id="searchProgress"></div>
+                        <div class="progress-bar bg-info" role="progressbar" id="searchProgress" style="width: 0%">0%</div>
                     </div>
                 </div>
                 <div class="stage mb-2">
                     <label>Clean</label>
                     <div class="progress">
-                        <div class="progress-bar bg-info" role="progressbar" id="cleanProgress"></div>
+                        <div class="progress-bar bg-info" role="progressbar" id="cleanProgress" style="width: 0%">0%</div>
                     </div>
                 </div>
                 <div class="stage mb-2">
                     <label>Analyze</label>
                     <div class="progress">
-                        <div class="progress-bar bg-info" role="progressbar" id="analyzeProgress"></div>
+                        <div class="progress-bar bg-info" role="progressbar" id="analyzeProgress" style="width: 0%">0%</div>
                     </div>
                 </div>
             </div>
@@ -77,75 +86,189 @@
     <div class="card">
         <div class="card-body">
             <h5 class="card-title">Logs</h5>
-            <div class="logs-container" style="max-height: 400px; overflow-y: auto;">
-                <div id="logs" class="bg-light p-3" style="font-family: monospace; font-size: 0.9em;"></div>
+            <div class="logs-container">
+                <div id="logs" class="bg-light p-3"></div>
             </div>
         </div>
     </div>
 
     <!-- Кнопки действий -->
     <div class="mt-4">
-        {% if task.status == 'completed' %}
-            <a href="{{ url_for('main.task_results', task_id=task.id) }}" 
-               class="btn btn-success">View Results</a>
-        {% endif %}
+        <!-- Кнопки скачивания - всегда видимы, активируются при завершении -->
+        <a href="{{ url_for('main.export_task_results', task_id=task.id) }}" 
+           class="btn btn-primary {% if task.status != 'completed' and task.progress != 100 %}disabled{% endif %}"
+           id="downloadCsvBtn"
+           {% if task.status != 'completed' and task.progress != 100 %}aria-disabled="true"{% endif %}>
+            <i class="fas fa-download"></i> Download CSV
+        </a>
+        <a href="{{ url_for('main.export_task_results_excel', task_id=task.id) }}" 
+           class="btn btn-success {% if task.status != 'completed' and task.progress != 100 %}disabled{% endif %}"
+           id="downloadExcelBtn"
+           {% if task.status != 'completed' and task.progress != 100 %}aria-disabled="true"{% endif %}>
+            <i class="fas fa-file-excel"></i> Download Excel
+        </a>
+        
+        <!-- Кнопка возврата к клиенту - всегда активна -->
         <a href="{{ url_for('main.client_detail', id=task.client_id) }}" 
            class="btn btn-secondary">Back to Client</a>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const socket = io();
     const taskId = {{ task.id }};
     const logsContainer = document.getElementById('logs');
+    const connectionStatus = document.getElementById('connectionStatus');
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
     
+    function updateConnectionStatus(status, message) {
+        // Обновляем текст, но не показываем
+        connectionStatus.className = 'connection-status ' + status;
+        connectionStatus.textContent = message;
+    }
+    
+    updateConnectionStatus('connecting', 'Connecting...');
+    
+    // Инициализируем сокет с новыми настройками
+    const socket = io({
+        path: '/socket.io',
+        transports: ['websocket'],
+        upgrade: false,  // Используем только WebSocket
+        reconnection: true,
+        reconnectionAttempts: maxReconnectAttempts,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        forceNew: true
+    });
+    
+    // Обработчики событий сокета
     socket.on('connect', function() {
-        console.log('Connected to WebSocket');
+        console.log('Connected to Socket.IO');
+        updateConnectionStatus('connected', 'Connected');
+        reconnectAttempts = 0;
         socket.emit('join', {task_id: taskId});
     });
 
+    socket.on('connect_error', function(error) {
+        console.error('Socket.IO connection error:', error);
+        updateConnectionStatus('disconnected', 'Connection error');
+        reconnectAttempts++;
+        
+        if (reconnectAttempts >= maxReconnectAttempts) {
+            updateConnectionStatus('disconnected', 'Failed to connect');
+            socket.disconnect();
+        }
+    });
+
+    socket.on('disconnect', function() {
+        console.log('Disconnected from Socket.IO');
+        updateConnectionStatus('disconnected', 'Disconnected');
+    });
+
+    socket.on('reconnecting', function(attemptNumber) {
+        console.log('Attempting to reconnect:', attemptNumber);
+        updateConnectionStatus('connecting', `Reconnecting (${attemptNumber}/${maxReconnectAttempts})...`);
+    });
+
+    socket.on('join_response', function(data) {
+        console.log('Join response:', data);
+        if (data.status === 'joined') {
+            // Не добавляем сообщение о подключении к комнате в логи
+            // addLogEntry('System', `Connected to room: ${data.room}`);
+        }
+    });
+
     socket.on('task_update', function(data) {
+        console.log('Received task update:', data);
+        
         // Обновляем общий прогресс
-        if (data.progress) {
-            document.getElementById('totalProgress').style.width = data.progress + '%';
-            document.getElementById('totalProgress').textContent = data.progress + '%';
+        if (data.progress !== null && data.progress !== undefined) {
+            console.log(`Updating total progress: ${data.progress}%`);
+            const totalProgressBar = document.getElementById('totalProgress');
+            totalProgressBar.style.width = data.progress + '%';
+            totalProgressBar.textContent = data.progress + '%';
+            
+            // Активируем кнопки скачивания, если прогресс достиг 100%
+            if (data.progress === 100) {
+                console.log('Task completed, enabling download buttons');
+                enableDownloadButtons();
+            }
         }
         
         // Обновляем прогресс этапа
-        if (data.stage && data.stage_progress) {
-            document.getElementById(data.stage + 'Progress').style.width = data.stage_progress + '%';
+        if (data.stage && data.stage_progress !== null && data.stage_progress !== undefined) {
+            console.log(`Updating ${data.stage} progress: ${data.stage_progress}%`);
+            const stageProgressBar = document.getElementById(data.stage + 'Progress');
+            if (stageProgressBar) {
+                stageProgressBar.style.width = data.stage_progress + '%';
+                stageProgressBar.textContent = data.stage_progress + '%';
+            } else {
+                console.error(`Progress bar element for stage "${data.stage}" not found!`);
+                console.log('Available progress bars:', 
+                    ['searchProgress', 'cleanProgress', 'analyzeProgress'].map(id => 
+                        `${id}: ${document.getElementById(id) ? 'found' : 'not found'}`
+                    )
+                );
+            }
         }
         
         // Добавляем лог
         if (data.message) {
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry ' + (data.stage || '');
+            addLogEntry(data.stage || 'System', data.message);
             
-            const timestamp = document.createElement('span');
-            timestamp.className = 'timestamp';
-            timestamp.textContent = new Date().toLocaleTimeString();
-            
-            const message = document.createElement('span');
-            message.textContent = data.message;
-            
-            logEntry.appendChild(timestamp);
-            logEntry.appendChild(message);
-            logsContainer.appendChild(logEntry);
-            
-            // Прокручиваем к последнему сообщению
-            logsContainer.scrollTop = logsContainer.scrollHeight;
+            // Активируем кнопки при сообщении о завершении
+            if (data.message.includes('completed') || data.message.includes('завершен')) {
+                console.log('Completion message received, enabling download buttons');
+                enableDownloadButtons();
+            }
         }
         
         // Если задача завершена, обновляем страницу
         if (data.status === 'completed') {
-            location.reload();
+            console.log('Task status is completed, enabling buttons and reloading page');
+            enableDownloadButtons();
+            setTimeout(() => location.reload(), 1000);
         }
     });
+    
+    // Функция для активации кнопок скачивания
+    function enableDownloadButtons() {
+        const csvBtn = document.getElementById('downloadCsvBtn');
+        const excelBtn = document.getElementById('downloadExcelBtn');
+        
+        if (csvBtn) {
+            csvBtn.classList.remove('disabled');
+            csvBtn.removeAttribute('aria-disabled');
+        }
+        
+        if (excelBtn) {
+            excelBtn.classList.remove('disabled');
+            excelBtn.removeAttribute('aria-disabled');
+        }
+    }
+    
+    function addLogEntry(type, message) {
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry ' + (type.toLowerCase() || '');
+        
+        const timestamp = document.createElement('span');
+        timestamp.className = 'timestamp';
+        timestamp.textContent = new Date().toLocaleTimeString();
+        
+        const messageSpan = document.createElement('span');
+        messageSpan.textContent = message;
+        
+        logEntry.appendChild(timestamp);
+        logEntry.appendChild(messageSpan);
+        logsContainer.appendChild(logEntry);
+        
+        // Прокручиваем к последнему сообщению
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
 });
 </script>
 {% endblock %}

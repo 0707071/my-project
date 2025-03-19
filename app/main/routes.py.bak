@@ -12,17 +12,13 @@ from app.models.search_result import SearchResult
 from app.models.export import Export
 from app.models.analysis_result import AnalysisResult
 import csv
-from io import StringIO, BytesIO
+from io import StringIO
 import pandas as pd
 from datetime import datetime
 import os
 import io
 import openpyxl
-import json
-import time
-from werkzeug.exceptions import BadRequest
-import traceback
-from app.utils import csv_to_excel_in_memory
+import logging
 
 @bp.route('/')
 @login_required
@@ -95,37 +91,31 @@ def client_search(id):
 @bp.route('/client/<int:id>/search/run', methods=['POST'])
 @login_required
 def run_client_search(id):
-    """
-    Запускает поиск по веб-интерфейсу с различными режимами:
-    - full: полный цикл поиск -> очистка -> анализ
-    - search: только поиск и очистка
-    - analyze: только анализ (требует загрузки файла)
-    """
     search_query_id = request.form.get('search_query_id')
-    mode = request.form.get('mode', 'full')  # Режим по умолчанию - full
+    mode = request.form.get('mode', 'full')  # Добавляем параметр режима
     
     if not search_query_id:
         flash('No search query selected', 'danger')
         return redirect(url_for('main.client_detail', id=id))
     
     search_query = SearchQuery.query.get_or_404(search_query_id)
-    prompt = None
     
     # Проверяем нужен ли промпт для выбранного режима
+    prompt = None
     if mode in ['full', 'analyze']:
-    # Получаем активный промпт
+        # Получаем активный промпт
         prompt = Prompt.query.filter_by(
-        client_id=id,
-        is_active=True
-    ).first()
+            client_id=id,
+            is_active=True
+        ).first()
     
-    if not prompt:
-        flash('No active prompt found', 'danger')
-        return redirect(url_for('main.client_detail', id=id))
+        if not prompt:
+            flash('No active prompt found', 'danger')
+            return redirect(url_for('main.client_detail', id=id))
     
-    if not prompt.column_names:
-        flash('Prompt column names not configured', 'danger')
-        return redirect(url_for('main.client_detail', id=id))
+        if not prompt.column_names:
+            flash('Prompt column names not configured', 'danger')
+            return redirect(url_for('main.client_detail', id=id))
     
     # Создаем задачу
     task = SearchTask(
@@ -140,14 +130,11 @@ def run_client_search(id):
     # Запускаем соответствующую задачу
     try:
         if mode == 'search':
-            # Режим только поиска и очистки
             celery_task = run_search_and_clean.delay(task.id)
             task.celery_task_id = celery_task.id
             db.session.commit()
-            print(f"DEBUG: Search and clean Celery task started: {celery_task.id}")
-            
         elif mode == 'analyze':
-            # Режим только анализа - нужен файл с данными
+            # Для анализа нужен файл с данными
             if 'cleaned_file' not in request.files:
                 db.session.delete(task)
                 db.session.commit()
@@ -183,41 +170,55 @@ def run_client_search(id):
                 input_file = uploaded_file
                 if file_ext in {'.xlsx', '.xls'}:
                     try:
-                        # Читаем Excel файл
+                        # Используем openpyxl для Excel
                         df = pd.read_excel(uploaded_file, engine='openpyxl')
                         
                         # Проверяем, что данные загрузились
                         if df.empty:
                             raise Exception("Excel file is empty")
-                            
+                        
                         # Сохраняем в CSV
                         csv_file = os.path.join(client_dir, f'converted_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
                         df.to_csv(csv_file, index=False, encoding='utf-8-sig')
                         input_file = csv_file
                         
-                        print(f"Successfully converted Excel to CSV. Rows: {len(df)}, Columns: {list(df.columns)}")
+                        logging.info(f"Successfully converted Excel to CSV. Rows: {len(df)}, Columns: {list(df.columns)}")
                         
                     except Exception as e:
-                        # Если не получилось прочитать как Excel - пробуем как CSV
+                        # Если не получилось прочитать как Excel - пробуем разные обработчики
                         try:
-                            df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+                            # Пробуем с xlrd для старых форматов Excel
+                            df = pd.read_excel(uploaded_file, engine='xlrd')
                             if df.empty:
-                                raise Exception("File is empty")
-                                
-                            # Переименовываем файл с правильным расширением
+                                raise Exception("Excel file is empty (xlrd)")
+                            
+                            # Сохраняем в CSV
                             csv_file = os.path.join(client_dir, f'converted_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
                             df.to_csv(csv_file, index=False, encoding='utf-8-sig')
                             input_file = csv_file
-                            print(f"File processed as CSV. Rows: {len(df)}, Columns: {list(df.columns)}")
+                            logging.info(f"Excel converted with xlrd. Rows: {len(df)}, Columns: {list(df.columns)}")
                             
-                        except Exception as csv_error:
-                            os.unlink(uploaded_file)  # Удаляем загруженный файл
-                            db.session.delete(task)
-                            db.session.commit()
-                            error_msg = f"Error processing file: {str(e)}. CSV attempt failed: {str(csv_error)}"
-                            print(error_msg)  # Для отладки
-                            flash(error_msg, 'danger')
-                            return redirect(url_for('main.client_detail', id=id))
+                        except Exception as xlrd_error:
+                            # Наконец, пробуем как CSV
+                            try:
+                                df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+                                if df.empty:
+                                    raise Exception("File is empty")
+                                
+                                # Переименовываем файл с правильным расширением
+                                csv_file = os.path.join(client_dir, f'converted_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+                                os.rename(uploaded_file, csv_file)
+                                input_file = csv_file
+                                logging.info(f"File processed as CSV. Rows: {len(df)}, Columns: {list(df.columns)}")
+                                
+                            except Exception as csv_error:
+                                os.unlink(uploaded_file)  # Удаляем загруженный файл
+                                db.session.delete(task)
+                                db.session.commit()
+                                error_msg = f"Error processing file: {str(e)}. XLRD error: {str(xlrd_error)}. CSV attempt failed: {str(csv_error)}"
+                                logging.error(error_msg)
+                                flash(error_msg, 'danger')
+                                return redirect(url_for('main.client_detail', id=id))
                 
                 # Запускаем задачу анализа
                 celery_task = run_analysis.delay(task.id, input_file)
@@ -237,11 +238,11 @@ def run_client_search(id):
                 flash(f'Error processing file: {str(e)}', 'danger')
                 return redirect(url_for('main.client_detail', id=id))
                 
-        else:  # full - полный цикл
+        else:  # full
             celery_task = run_search.delay(task.id)
             task.celery_task_id = celery_task.id
             db.session.commit()
-            print(f"DEBUG: Full pipeline Celery task started: {celery_task.id}")
+            print(f"DEBUG: Celery task started: {celery_task.id}")
             
         return redirect(url_for('main.task_status', task_id=task.id))
         
@@ -381,6 +382,40 @@ def prompt_detail(id):
     prompt = Prompt.query.get_or_404(id)
     return render_template('main/prompt_detail.html', prompt=prompt)
 
+def download_results(results, file_format='excel'):
+    """
+    Вспомогательная функция для скачивания результатов в CSV или Excel
+    """
+    # Создаем DataFrame из результатов
+    df_data = [r.to_dict() for r in results]
+    if not df_data:
+        return None
+        
+    df = pd.DataFrame(df_data)
+    
+    if file_format == 'csv':
+        # Экспорт в CSV
+        output = StringIO()
+        df.to_csv(output, index=False, encoding='utf-8-sig')
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        )
+    else:
+        # Экспорт в Excel
+        excel_buffer = convert_csv_to_excel(df=df)
+        
+        return send_file(
+            excel_buffer,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        )
+
 @bp.route('/task/<int:task_id>/results', methods=['GET'])
 @login_required
 def task_results(task_id):
@@ -406,15 +441,13 @@ def task_results(task_id):
     
     # Если запрошено скачивание
     if request.args.get('download'):
-        if task.result_file and os.path.exists(os.path.join(current_app.root_path, '..', task.result_file)):
-            return send_file(
-                os.path.join(current_app.root_path, '..', task.result_file),
-                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                as_attachment=True,
-                download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-            )
-        else:
-            flash('Result file not found', 'error')
+        if not results:
+            flash('No results to download', 'warning')
+            return redirect(url_for('main.task_results', task_id=task_id))
+            
+        # Определяем формат (по умолчанию Excel)
+        download_format = request.args.get('format', 'excel')
+        return download_results(results, download_format)
     
     # Для отображения страницы
     return render_template('task/results.html', 
@@ -432,36 +465,7 @@ def task_exports(task_id):
 @bp.route('/task/<int:task_id>/export', methods=['GET'])
 @login_required
 def export_task_results(task_id):
-    """
-    Экспортирует результаты задачи в формате CSV или Excel.
-    По умолчанию используется формат Excel.
-    """
     task = SearchTask.query.get_or_404(task_id)
-    format_type = request.args.get('format', 'excel')  # По умолчанию Excel
-    
-    # Если есть готовый файл - обрабатываем его
-    if task.result_file and os.path.exists(os.path.join(current_app.root_path, '..', task.result_file)):
-        file_path = os.path.join(current_app.root_path, '..', task.result_file)
-        
-        if format_type == 'csv':
-            # Отдаем как CSV
-            return send_file(
-                file_path,
-                mimetype='text/csv',
-                as_attachment=True,
-                download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-            )
-        else:
-            # Конвертируем и отдаем как Excel
-            with open(file_path, 'r', encoding='utf-8-sig') as f:
-                excel_buffer = csv_to_excel_in_memory(f.read())
-                
-            return send_file(
-                excel_buffer,
-                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                as_attachment=True,
-                download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-            )
     
     # Получаем результаты из БД
     results = AnalysisResult.query.filter_by(task_id=task_id).all()
@@ -469,87 +473,9 @@ def export_task_results(task_id):
         flash('No results found', 'error')
         return redirect(url_for('main.task_results', task_id=task_id))
     
-    # Преобразуем результаты в DataFrame и сохраняем в CSV
-    df = pd.DataFrame([r.to_dict() for r in results])
-    
-    if format_type == 'csv':
-        # Создаем CSV в памяти
-        csv_output = StringIO()
-        df.to_csv(csv_output, index=False, encoding='utf-8-sig')
-        csv_output.seek(0)
-        
-        # Отдаем как CSV
-        return send_file(
-            csv_output,
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name=f'analysis_results_{datetime.now().strftime("%Y%m%d")}.csv'
-        )
-    else:
-        # Создаем Excel в памяти
-        excel_buffer = BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Results')
-        excel_buffer.seek(0)
-        
-        # Отдаем как Excel
-        return send_file(
-            excel_buffer,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=f'analysis_results_{datetime.now().strftime("%Y%m%d")}.xlsx'
-        )
-
-@bp.route('/task/<int:task_id>/export/excel', methods=['GET'])
-@login_required
-def export_task_results_excel(task_id):
-    """
-    Экспортирует результаты задачи в формате Excel.
-    """
-    task = SearchTask.query.get_or_404(task_id)
-    
-    # Если есть готовый файл - конвертируем его
-    if task.result_file and os.path.exists(os.path.join(current_app.root_path, '..', task.result_file)):
-        file_path = os.path.join(current_app.root_path, '..', task.result_file)
-        
-        # Конвертируем CSV в Excel
-        df = pd.read_csv(file_path, encoding='utf-8-sig')
-        
-        # Создаем Excel в памяти
-        excel_buffer = BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Results')
-        excel_buffer.seek(0)
-        
-        return send_file(
-            excel_buffer,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=f'search_results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-        )
-    
-    # Получаем результаты из БД
-    results = AnalysisResult.query.filter_by(task_id=task_id).all()
-    if not results:
-        flash('No results found', 'error')
-        return redirect(url_for('main.task_results', task_id=task_id))
-    
-    # Преобразуем результаты в DataFrame
-        df = pd.DataFrame([r.to_dict() for r in results])
-        
-    # Создаем Excel в памяти
-    excel_buffer = BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Results')
-    excel_buffer.seek(0)
-    
-    # Отдаем как Excel
-    return send_file(
-        excel_buffer,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name=f'analysis_results_{datetime.now().strftime("%Y%m%d")}.xlsx'
-    )
+    # Определяем формат экспорта (по умолчанию Excel)
+    export_format = request.args.get('format', 'excel')
+    return download_results(results, export_format)
 
 @bp.route('/debug')
 def debug():
@@ -618,7 +544,58 @@ def delete_search_query(id, query_id):
 def parser():
     return render_template('main/parser.html')
 
-@bp.route('/social-media')
-@login_required
-def social_media_parser():
-    return render_template('main/social_media_parser.html')
+def convert_csv_to_excel(csv_file_path=None, df=None):
+    """
+    Преобразует CSV в Excel. Может принимать путь к CSV-файлу или готовый DataFrame.
+    Возвращает буфер с Excel-файлом.
+    """
+    # Создаем буфер в памяти
+    output = io.BytesIO()
+    
+    try:
+        # Если передан путь к файлу, читаем его
+        if csv_file_path and os.path.exists(csv_file_path):
+            df = pd.read_csv(csv_file_path, encoding='utf-8-sig')
+            logging.info(f"Прочитан CSV файл: {csv_file_path}, строк: {len(df)}, колонок: {list(df.columns)}")
+        
+        # Если есть DataFrame, сохраняем его как Excel
+        if df is not None and not df.empty:
+            logging.info(f"Преобразование DataFrame в Excel, строк: {len(df)}, колонок: {list(df.columns)}")
+            
+            # Создаем Excel writer
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Results')
+                
+                # Автонастройка ширины колонок
+                worksheet = writer.sheets['Results']
+                for i, column in enumerate(df.columns):
+                    # Безопасный расчет ширины колонки
+                    try:
+                        max_len = max([
+                            len(str(x)) if not pd.isna(x) else 0 
+                            for x in df[column].values
+                        ] + [len(str(column))])
+                        column_width = min(max_len + 2, 50)  # Ограничиваем максимальную ширину
+                    except Exception as e:
+                        logging.error(f"Ошибка при расчете ширины колонки {column}: {str(e)}")
+                        column_width = 12  # Значение по умолчанию
+                        
+                    worksheet.column_dimensions[openpyxl.utils.get_column_letter(i+1)].width = column_width
+        else:
+            # Если нет данных, создаем пустой лист
+            logging.warning("DataFrame пуст или не передан, создаем пустой Excel-файл")
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Results"
+            wb.save(output)
+    
+    except Exception as e:
+        logging.error(f"Ошибка при конвертации в Excel: {str(e)}")
+        # Создаем простой Excel с сообщением об ошибке
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws['A1'] = f"Error: {str(e)}"
+        wb.save(output)
+    
+    output.seek(0)
+    return output

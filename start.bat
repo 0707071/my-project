@@ -3,15 +3,19 @@ echo Starting development environment...
 
 :: Start Redis
 echo Starting Redis...
-start /B redis-server
+: :start /B redis-server
+docker start redis
 
 :: Start Celery worker
 echo Starting Celery...
 start /B celery -A app.celery worker --loglevel=info --pool=solo
 
 :: Start Flask development server
+: echo Starting Flask...
+: start /B flask run --debug
 echo Starting Flask...
-start /B flask run --debug
+start /B flask run --debugger --reload
+
 
 echo All services started! Press any key to stop all services...
 pause

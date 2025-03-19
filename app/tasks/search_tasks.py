@@ -19,6 +19,8 @@ import openpyxl.styles
 from app.models.analysis_result import AnalysisResult
 import ast
 from typing import List, Any
+import openpyxl
+from app.tasks.analyze_only import analyze_data, parse_analysis
 
 # Добавляем путь к модулям поиска
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../modules'))
@@ -82,6 +84,13 @@ def parse_relative_date(date_str):
                 return datetime.now() - timedelta(**delta)
         return None
 
+def get_task_dir(task_id: int, client_id: int) -> str:
+    """Creates and returns unique directory path for task results"""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    task_dir = os.path.join('results', str(client_id), f"{timestamp}_task{task_id}")
+    os.makedirs(task_dir, exist_ok=True)
+    return task_dir
+
 @celery.task(bind=True)
 def run_search(self, task_id):
     """Асинхронная задача для выполнения поиска и анализа"""
@@ -104,17 +113,21 @@ def run_search(self, task_id):
             if not prompt:
                 raise ValueError("No active prompt found")
 
-            # Создаем директории для результатов
-            client_dir = os.path.join('results', str(search_task.client_id))
-            os.makedirs(client_dir, exist_ok=True)
+            # Создаем уникальную директорию для результатов задачи
+            task_dir = get_task_dir(task_id, search_task.client_id)
 
-            # Пути к файлам
-            raw_results = os.path.join(client_dir, 'search_results.csv')
-            cleaned_results = os.path.join(client_dir, 'search_results_cleaned.csv')
-            analyzed_results = os.path.join(client_dir, 'search_results_analyzed.csv')
+            # Пути к файлам теперь в уникальной директории
+            raw_results = os.path.join(task_dir, 'search_results.csv')
+            cleaned_results = os.path.join(task_dir, 'search_results_cleaned.csv')
+            analyzed_results = os.path.join(task_dir, 'search_results_analyzed.csv')
             
             # 1. Поиск и сохранение статей
-            for query in search_query.main_phrases.split('\n'):
+            search_task.stage = 'search'
+            db.session.commit()
+            send_task_log(task_id, "Starting search...", 'search', 0, 0)
+            
+            total_queries = len(search_query.main_phrases.split('\n'))
+            for idx, query in enumerate(search_query.main_phrases.split('\n'), 1):
                 try:
                     search_results = await fetch_xmlstock_search_results(
                         query.strip(),
@@ -132,11 +145,18 @@ def run_search(self, task_id):
                         articles = await process_search_results(search_results)
                         if articles:
                             df = pd.DataFrame(articles)
+                            # Добавляем поисковый запрос к каждой строке
+                            df['search_query'] = query.strip()
                             # Создаем файл если его нет
                             if os.path.exists(raw_results):
                                 df.to_csv(raw_results, mode='a', header=False, index=False)
                             else:
                                 df.to_csv(raw_results, index=False)
+                            
+                    # Обновляем прогресс поиска
+                    search_progress = int((idx / total_queries) * 100)
+                    send_task_log(task_id, f"Processed query {idx}/{total_queries}", 'search', search_progress // 3, search_progress)
+                    
                 except Exception as e:
                     send_task_log(task_id, f"Error: {str(e)}", 'search')
                     continue
@@ -145,21 +165,30 @@ def run_search(self, task_id):
                 raise ValueError("No search results found for any query")
 
             # 2. Очистка данных
+            search_task.stage = 'clean'
+            db.session.commit()
+            send_task_log(task_id, "Starting data cleaning...", 'clean', 33, 0)
+            
             if os.path.exists(raw_results):
                 df = pd.read_csv(raw_results)
-                df_cleaned = clean_data(df)
+                df_cleaned = clean_data(df, task_id)
                 df_cleaned.to_csv(cleaned_results, index=False)
+                send_task_log(task_id, "Data cleaning completed", 'clean', 66, 100)
             else:
                 raise ValueError("No search results found")
 
             # 3. Анализ данных
+            search_task.stage = 'analyze'
+            db.session.commit()
+            send_task_log(task_id, "Starting analysis...", 'analyze', 66, 0)
+            
             if os.path.exists(cleaned_results):
                 await run_analyse_data(cleaned_results, analyzed_results, prompt.content, {
                     'model': 'gpt-4o-mini',
                     'api_keys': os.getenv('OPENAI_API_KEYS', '').split(','),
                     'max_retries': 3,
                     'max_rate': 500
-                })
+                }, task_id)
             else:
                 raise ValueError("No cleaned data found")
 
@@ -170,106 +199,13 @@ def run_search(self, task_id):
                 # Получаем названия колонок из промпта
                 column_names = [name.strip() for name in (prompt.column_names or '').split('\n') if name.strip()]
                 
-                def parse_analysis(analysis_str: str) -> List[str]:
-                    """
-                    Парсит ответ модели с обработкой разных форматов и типичных ошибок
-                    
-                    Поддерживает:
-                    - Списки в квадратных скобках [1, 2, 3]
-                    - JSON в фигурных скобках {"a": 1}
-                    - Ответы в блоках кода ```[1,2,3]```
-                    - Разные варианты кавычек (' " `)
-                    - Неверное экранирование
-                    
-                    Всегда возвращает список строк. При ошибке парсинга возвращает 
-                    сырой ответ модели в первой колонке и "Err" в остальных.
-                    """
-                    if not analysis_str or pd.isna(analysis_str):
-                        return [None] * len(column_names)
-                        
-                    try:
-                        # Очищаем от блоков кода
-                        clean_str = re.sub(r'```.*?```', '', analysis_str, flags=re.DOTALL)
-                        
-                        # Ищем список или JSON между скобками
-                        list_match = re.search(r'\[(.*?)\]', clean_str, re.DOTALL)
-                        json_match = re.search(r'\{(.*?)\}', clean_str, re.DOTALL)
-                        
-                        # Если не нашли ни списка, ни JSON - возвращаем сырой ответ
-                        if not list_match and not json_match:
-                            return [clean_str.strip()] + ["Err"] * (len(column_names) - 1)
-                            
-                        content = None
-                        if list_match:
-                            content = f"[{list_match.group(1)}]"
-                        elif json_match:
-                            content = f"{{{json_match.group(1)}}}"
-                            
-                        # Нормализуем кавычки
-                        content = (
-                            content
-                            .replace('"', '"')
-                            .replace('"', '"')
-                            .replace(''', "'")
-                            .replace(''', "'")
-                        )
-                        
-                        # Пробуем разные методы парсинга
-                        try:
-                            # Сначала как JSON
-                            if content.startswith('{'):
-                                data = json.loads(content)
-                                values = list(data.values())
-                            else:
-                                data = json.loads(content)
-                                values = data if isinstance(data, list) else [data]
-                                
-                        except json.JSONDecodeError:
-                            try:
-                                # Затем как Python literal
-                                values = ast.literal_eval(content)
-                                values = values if isinstance(values, list) else [values]
-                                
-                            except (SyntaxError, ValueError):
-                                # Если не получилось - пробуем исправить экранирование
-                                fixed_content = (
-                                    content
-                                    .replace('\\n', '\n')
-                                    .replace('\\"', '"')
-                                    .replace('\\\'', "'")
-                                )
-                                try:
-                                    values = ast.literal_eval(fixed_content)
-                                    values = values if isinstance(values, list) else [values]
-                                except:
-                                    # Если все методы парсинга не сработали - возвращаем сырой контент
-                                    return [content] + ["Err"] * (len(column_names) - 1)
-                        
-                        # Приводим все значения к строкам
-                        values = [
-                            str(v).strip() if v is not None else None 
-                            for v in values
-                        ]
-                        
-                        # Дополняем или обрезаем до нужной длины
-                        if len(values) < len(column_names):
-                            values.extend([None] * (len(column_names) - len(values)))
-                        else:
-                            values = values[:len(column_names)]
-                            
-                        return values
-                        
-                    except Exception as e:
-                        logging.error(f"Error parsing analysis: {str(e)}\nRaw response: {analysis_str}")
-                        return [str(analysis_str)] + ["Err"] * (len(column_names) - 1)
-                
                 # Разбираем ответы модели в новые колонки
                 for idx, row in results_df.iterrows():
                     try:
                         if pd.isna(row['analysis']):
                             values = [None] * len(column_names)
                         else:
-                            values = parse_analysis(row['analysis'])
+                            values = parse_analysis(row['analysis'], column_names)
                         
                         # Добавляем значения в DataFrame
                         for col, value in zip(column_names, values):
@@ -281,14 +217,12 @@ def run_search(self, task_id):
                         for col in column_names:
                             results_df.at[idx, col] = None
                 
-                # Удаляем колонку analysis
+                # Удаляем только колонку analysis, сохраняя search_query
                 results_df = results_df.drop('analysis', axis=1)
                 
-                # Сохраняем Excel
-                formatted_results = os.path.join(client_dir, f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
-                with pd.ExcelWriter(formatted_results, engine='openpyxl') as writer:
-                    results_df.to_excel(writer, index=False)
-                    # ... форматирование Excel ...
+                # При сохранении финального результата используем ту же директорию
+                formatted_results = os.path.join(task_dir, f"results_final.csv")
+                results_df.to_csv(formatted_results, index=False, encoding='utf-8-sig')
 
                 # Обновляем задачу
                 search_task.status = 'completed'
@@ -306,3 +240,205 @@ def run_search(self, task_id):
             return {'status': 'failed', 'error': str(e)}
 
     return asyncio.run(async_search())
+
+@celery.task(bind=True)
+def run_search_and_clean(self, task_id):
+    """Асинхронная задача для выполнения поиска и очистки данных"""
+    async def async_search():
+        search_task = SearchTask.query.get(task_id)
+        if not search_task:
+            return {'status': 'failed', 'error': 'Task not found'}
+        
+        try:
+            # Получаем параметры поиска из БД
+            search_query = SearchQuery.query.get(search_task.search_query_id)
+            if not search_query:
+                raise ValueError("Search query not found")
+
+            # Создаем уникальную директорию для результатов задачи
+            task_dir = get_task_dir(task_id, search_task.client_id)
+
+            # Пути к файлам
+            raw_results = os.path.join(task_dir, 'search_results.csv')
+            cleaned_results = os.path.join(task_dir, 'search_results_cleaned.csv')
+            
+            # 1. Поиск и сохранение статей
+            search_task.stage = 'search'
+            db.session.commit()
+            send_task_log(task_id, "Starting search...", 'search', 0, 0)
+            
+            total_queries = len(search_query.main_phrases.split('\n'))
+            for idx, query in enumerate(search_query.main_phrases.split('\n'), 1):
+                try:
+                    search_results = await fetch_xmlstock_search_results(
+                        query.strip(),
+                        search_query.include_words,
+                        search_query.exclude_words,
+                        {
+                            'days': search_query.days_back,
+                            'results_per_page': search_query.results_per_page,
+                            'num_pages': search_query.num_pages
+                        },
+                        verbose=True
+                    )
+                    
+                    if search_results:
+                        articles = await process_search_results(search_results)
+                        if articles:
+                            df = pd.DataFrame(articles)
+                            # Добавляем поисковый запрос к каждой строке
+                            df['search_query'] = query.strip()
+                            # Создаем файл если его нет
+                            if os.path.exists(raw_results):
+                                df.to_csv(raw_results, mode='a', header=False, index=False)
+                            else:
+                                df.to_csv(raw_results, index=False)
+                    
+                    # Обновляем прогресс поиска
+                    search_progress = int((idx / total_queries) * 100)
+                    send_task_log(task_id, f"Processed query {idx}/{total_queries}", 'search', search_progress // 3, search_progress)
+                    
+                except Exception as e:
+                    send_task_log(task_id, f"Error: {str(e)}", 'search')
+                    continue
+
+            if not os.path.exists(raw_results) or os.path.getsize(raw_results) == 0:
+                raise ValueError("No search results found for any query")
+
+            # 2. Очистка данных
+            search_task.stage = 'clean'
+            db.session.commit()
+            send_task_log(task_id, "Starting data cleaning...", 'clean', 33, 0)
+            
+            if os.path.exists(raw_results):
+                df = pd.read_csv(raw_results)
+                df_cleaned = clean_data(df, task_id)
+                df_cleaned.to_csv(cleaned_results, index=False)
+                send_task_log(task_id, "Data cleaning completed", 'clean', 66, 100)
+            else:
+                raise ValueError("No search results found")
+
+            # Обновляем задачу
+            search_task.status = 'completed'
+            search_task.result_file = cleaned_results
+            search_task.completed_at = datetime.utcnow()
+            db.session.commit()
+
+            return {'status': 'success'}
+
+        except Exception as e:
+            logging.error(f"Task failed: {str(e)}")
+            search_task.status = 'failed'
+            search_task.error = str(e)
+            db.session.commit()
+            return {'status': 'failed', 'error': str(e)}
+
+    return asyncio.run(async_search())
+
+@celery.task(bind=True)
+def run_analysis(self, task_id, cleaned_file=None):
+    """Асинхронная задача для выполнения анализа данных"""
+    async def async_analyze():
+        search_task = SearchTask.query.get(task_id)
+        if not search_task:
+            return {'status': 'failed', 'error': 'Task not found'}
+        
+        try:
+            # Получаем активный промпт
+            prompt = Prompt.query.filter_by(
+                client_id=search_task.client_id,
+                is_active=True
+            ).first()
+            if not prompt:
+                raise ValueError("No active prompt found")
+
+            # Создаем уникальную директорию для результатов анализа
+            task_dir = get_task_dir(task_id, search_task.client_id)
+            
+            # Определяем выходной файл в новой директории
+            analyzed_results = os.path.join(task_dir, 'search_results_analyzed.csv')
+            
+            # Запускаем анализ
+            await analyze_data(cleaned_file, analyzed_results, prompt.content, {
+                'model': 'gpt-4o-mini',
+                'api_keys': os.getenv('OPENAI_API_KEYS', '').split(','),
+                'max_retries': 3,
+                'max_rate': 500
+            }, task_id)
+
+            # Форматируем и сохраняем результаты в той же директории
+            formatted_results = os.path.join(task_dir, f"results_final.csv")
+            if os.path.exists(analyzed_results):
+                # Читаем исходные данные и результаты анализа
+                input_df = pd.read_csv(cleaned_file)
+                results_df = pd.read_csv(analyzed_results)
+                
+                # Получаем названия колонок из промпта
+                column_names = [name.strip() for name in (prompt.column_names or '').split('\n') if name.strip()]
+                logging.info(f"Column names from prompt: {column_names}")
+                
+                # Разбираем ответы модели в новые колонки
+                for idx, row in results_df.iterrows():
+                    try:
+                        # Создаем запись в БД
+                        analysis_result = AnalysisResult(
+                            task_id=task_id,
+                            prompt_id=prompt.id,
+                            title=input_df.iloc[idx]['title'],
+                            url=input_df.iloc[idx]['link'],
+                            content=input_df.iloc[idx]['description']
+                        )
+                        
+                        if pd.isna(row['analysis']):
+                            values = [None] * len(column_names)
+                            logging.warning(f"Empty analysis for row {idx}")
+                        else:
+                            logging.info(f"Raw analysis for row {idx}: {row['analysis']}")
+                            values = parse_analysis(row['analysis'], column_names)
+                            logging.info(f"Parsed values for row {idx}: {values}")
+                        
+                        # Добавляем значения в DataFrame и в БД
+                        for col, value in zip(column_names, values):
+                            results_df.at[idx, col] = value
+                            # Устанавливаем значение в модель БД если есть соответствующее поле
+                            if hasattr(analysis_result, col.lower()):
+                                setattr(analysis_result, col.lower(), value)
+                                logging.info(f"Set DB field {col.lower()} = {value}")
+                            else:
+                                logging.warning(f"No DB field for column {col}")
+                                
+                        db.session.add(analysis_result)
+                            
+                    except Exception as e:
+                        logging.error(f"Error processing row {idx}: {str(e)}")
+                        # В случае ошибки заполняем None
+                        for col in column_names:
+                            results_df.at[idx, col] = None
+                
+                # Сохраняем все в БД
+                db.session.commit()
+                logging.info("Saved all results to DB")
+                
+                # Удаляем только колонку analysis, сохраняя search_query
+                results_df = results_df.drop('analysis', axis=1)
+                
+                # Сохраняем результаты в CSV
+                results_df.to_csv(formatted_results, index=False, encoding='utf-8-sig')
+                logging.info(f"Saved formatted results to {formatted_results}")
+
+                # Обновляем задачу
+                search_task.status = 'completed'
+                search_task.result_file = formatted_results
+                search_task.completed_at = datetime.utcnow()
+                db.session.commit()
+
+                return {'status': 'success'}
+
+        except Exception as e:
+            logging.error(f"Task failed: {str(e)}")
+            search_task.status = 'failed'
+            search_task.error = str(e)
+            db.session.commit()
+            return {'status': 'failed', 'error': str(e)}
+
+    return asyncio.run(async_analyze())

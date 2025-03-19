@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 
 {% block title %}Home{% endblock %}
@@ -7,6 +8,7 @@
     <div class="col-md-12">
         <h1>Data Search and Analysis System</h1>
         <div class="row mt-4">
+            <!-- Existing Clients Card -->
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
@@ -16,7 +18,22 @@
                     </div>
                 </div>
             </div>
+
+            <!-- New Social Media Parser Card -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Social Media Parser</h5>
+                        <p class="card-text">Parse social media data for analysis</p>
+                         <!--"{{ url_for('main.social_media_parser') }}"-->
+                        <a href="http://social_media.karhuno.info/" class="btn btn-primary">Go to Parser</a>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
 {% endblock %}
+
+

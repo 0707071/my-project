@@ -14,8 +14,14 @@ class Config:
     REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
     
     # API Keys
-    OPENAI_API_KEYS = os.environ.get('OPENAI_API_KEYS')
+   #OPENAI_API_KEYS = os.environ.get('OPENAI_API_KEYS')
     APOLLO_API_KEY = os.environ.get('APOLLO_API_KEY')
+
+    # Azure OpenAI API Configuration
+    AZURE_OPENAI_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY")
+    AZURE_OPENAI_ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    AZURE_OPENAI_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT")
+    AZURE_OPENAI_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION")
     
     # XML Stock
     XMLSTOCK_USER = os.environ.get('XMLSTOCK_USER')
@@ -35,3 +41,8 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
+
+class ProductionConfig(Config):
+    DEBUG = False
+    # Add the SERVER_NAME configuration here for production
+    SERVER_NAME = 'social_media.karhuno.info'
