@@ -112,20 +112,39 @@ def run_client_search(id):
     prompt = None
     
     # Проверяем нужен ли промпт для выбранного режима
+    # if mode in ['full', 'analyze']:
+    # # Получаем активный промпт
+    #     prompt = Prompt.query.filter_by(
+    #     client_id=id,
+    #     is_active=True
+    # ).first()
+    
+    # if not prompt:
+    #     flash('No active prompt found', 'danger')
+    #     return redirect(url_for('main.client_detail', id=id))
+    
+    # if not prompt.column_names:
+    #     flash('Prompt column names not configured', 'danger')
+    #     return redirect(url_for('main.client_detail', id=id))
+
+        # Проверяем нужен ли промпт для выбранного режима
     if mode in ['full', 'analyze']:
-    # Получаем активный промпт
+        # Получаем активный промпт
         prompt = Prompt.query.filter_by(
-        client_id=id,
-        is_active=True
-    ).first()
+            client_id=id,
+            is_active=True
+        ).first()
+        
+        # Проверяем наличие промпта только если он нужен для текущего режима
+        if not prompt:
+            flash('No active prompt found', 'danger')
+            return redirect(url_for('main.client_detail', id=id))
+        
+        if not prompt.column_names:
+            flash('Prompt column names not configured', 'danger')
+            return redirect(url_for('main.client_detail', id=id))
+
     
-    if not prompt:
-        flash('No active prompt found', 'danger')
-        return redirect(url_for('main.client_detail', id=id))
-    
-    if not prompt.column_names:
-        flash('Prompt column names not configured', 'danger')
-        return redirect(url_for('main.client_detail', id=id))
     
     # Создаем задачу
     task = SearchTask(
