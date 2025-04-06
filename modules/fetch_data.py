@@ -48,103 +48,140 @@ semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 # Задержка между запросами в секундах
 REQUEST_DELAY = 0.1
 
-
 async def fetch_xmlstock_search_results(query, include, exclude, config, verbose=False):
     """
     Асинхронно получает результаты поиска из API xmlstock.
+    Применяет подход умножения для комбинаций ключевых слов и включаемых слов.
     """
     if not XMLSTOCK_USER or not XMLSTOCK_KEY:
         raise ValueError("XMLSTOCK API credentials not found in environment variables")
 
-    results = []
-    
-    full_query = query
-    if include:
-        full_query += f" {include}"
-    if exclude:
-        full_query += f" {exclude}"
-    
-    print(f"Full search query: {full_query}")
-    print("Using XMLSTOCK API")
-    
-    # Правильно формируем параметры запроса
-    params = {
-        "user": XMLSTOCK_USER,
-        "key": XMLSTOCK_KEY,
-        "query": full_query,
-        "num": config['results_per_page'],  # Количество результатов на страницу
-        "tbs": f"qdr:d{config['days']}",  # Количество дней для поиска
-        "sort": "date"
-    }
-    
-    print(f"Search parameters: {params}")
-    
-    async with aiohttp.ClientSession() as session:
-        total_results = 0
-        for page in range(config['num_pages']):
-            params['start'] = page * config['results_per_page']  # Пагинация
-            print(f"\nProcessing page {page + 1}/{config['num_pages']}")
-            
-            async with semaphore:
-                try:
-                    async with session.get(XMLSTOCK_URL, params=params, timeout=30) as response:
-                        print(f"Response status code: {response.status}")
-                        print(f"Request URL: {response.url}")
-                        
-                        if response.status != 200:
-                            print(f"Error fetching results: {response.status}")
-                            content = await response.text()
-                            print(f"Error response content: {content}")
-                            continue
+    # Разбиваем запрос и включаемые слова на отдельные строки
+    keyword_phrases = [kw.strip() for kw in query.split('\n') if kw.strip()]
+    include_phrases = [inc.strip() for inc in include.split('\n') if inc.strip()] if include else []
 
-                        content = await response.text()
-                        print(f"Raw XML response (first 500 chars): {content[:500]}")
-                        
-                        root = ET.fromstring(content)
-                        page_results = []
-                        for group in root.findall('.//group'):
-                            for doc in group.findall('doc'):
+    # Если нет включаемых слов, просто используем ключевые фразы
+    if not include_phrases:
+        include_phrases = [""]
+
+    # Формируем строку исключаемых слов
+    exclude_str = f" {exclude}" if exclude else ""
+
+    # Создаем все комбинации ключевых фраз и включаемых слов
+    all_queries = []
+    for keyword in keyword_phrases:
+        for include_word in include_phrases:
+            if include_word:
+                full_query = f"{keyword} \"{include_word}\"{exclude_str}"
+            else:
+                full_query = f"{keyword}{exclude_str}"
+            all_queries.append(full_query)
+
+    if verbose:
+        print(f"Generated {len(all_queries)} queries using multiplication approach:")
+        for idx, q in enumerate(all_queries, 1):
+            print(f"{idx}. {q}")
+
+    # Обрабатываем все сгенерированные запросы
+    if not all_queries:
+        print("No valid queries generated")
+        return []
+
+    print("Using XMLSTOCK API")
+
+    # Обрабатываем каждый запрос
+    all_results = []
+
+    async with aiohttp.ClientSession()  as session:
+        # Для каждого запроса из списка комбинаций
+        for query_idx, full_query in enumerate(all_queries):
+            print(f"\nProcessing query {query_idx + 1}/{len(all_queries)}: {full_query}")
+            
+            # Правильно формируем параметры запроса
+            params = {
+                "user": XMLSTOCK_USER,
+                "key": XMLSTOCK_KEY,
+                "query": full_query,
+                "num": config['results_per_page'],  # Количество результатов на страницу
+                "tbs": f"qdr:d{config['days']}",  # Количество дней для поиска
+                "sort": "date"
+            }
+            
+            print(f"Search parameters: {params}")
+            
+            query_results = []
+            total_results = 0
+            
+            # Для каждой страницы результатов
+            for page in range(config['num_pages']):
+                params['start'] = page * config['results_per_page']  # Пагинация
+                print(f"Processing page {page + 1}/{config['num_pages']} for query {query_idx + 1}")
+                
+                async with semaphore:
+                    try:
+                        async with session.get(XMLSTOCK_URL, params=params, timeout=30) as response:
+                            print(f"Response status code: {response.status}")
+                            print(f"Request URL: {response.url}")
+                            
+                            if response.status != 200:
+                                print(f"Error fetching results: {response.status}")
+                                content = await response.text()
+                                print(f"Error response content: {content}")
+                                continue
+
+                            content = await response.text()
+                            print(f"Raw XML response (first 500 chars): {content[:500]}")
+                            
+                            root = ET.fromstring(content)
+                            page_results = []
+                            for group in root.findall('.//group'):
+                                for doc in group.findall('doc'):
+                                    # Если достигли лимита результатов на странице, прерываем
+                                    if len(page_results) >= config['results_per_page']:
+                                        break
+                                    
+                                    pub_date = doc.find('pubDate').text if doc.find('pubDate') is not None else "N/A"
+                                    title = doc.find('title').text if doc.find('title') is not None else "N/A"
+                                    url = doc.find('url').text if doc.find('url') is not None else "N/A"
+                                    snippet = doc.find('snippet').text if doc.find('snippet') is not None else "N/A"
+                                    
+                                    result = {
+                                        'title': title,
+                                        'link': url,
+                                        'pubDate': pub_date,
+                                        'domain': doc.find('displayLink').text if doc.find('displayLink') is not None else "N/A",
+                                        'snippet': snippet,
+                                        'search_query': full_query  # Добавляем информацию о запросе
+                                    }
+                                    page_results.append(result)
+                                
                                 # Если достигли лимита результатов на странице, прерываем
                                 if len(page_results) >= config['results_per_page']:
                                     break
-                                
-                                pub_date = doc.find('pubDate').text if doc.find('pubDate') is not None else "N/A"
-                                title = doc.find('title').text if doc.find('title') is not None else "N/A"
-                                url = doc.find('url').text if doc.find('url') is not None else "N/A"
-                                snippet = doc.find('snippet').text if doc.find('snippet') is not None else "N/A"
-                                
-                                result = {
-                                    'title': title,
-                                    'link': url,
-                                    'pubDate': pub_date,
-                                    'domain': doc.find('displayLink').text if doc.find('displayLink') is not None else "N/A",
-                                    'snippet': snippet
-                                }
-                                page_results.append(result)
                             
-                            # Если достигли лимита результатов на странице, прерываем
-                            if len(page_results) >= config['results_per_page']:
+                            # Добавляем только нужное количество результатов
+                            query_results.extend(page_results[:config['results_per_page']])
+                            total_results += len(page_results[:config['results_per_page']])
+                            print(f"Results on page {page + 1}: {len(page_results[:config['results_per_page']])}")
+                            print(f"Total results for query {query_idx + 1} so far: {total_results}")
+                            
+                            # Если достигли общего лимита результатов для этого запроса, переходим к следующему
+                            if total_results >= config['results_per_page'] * config['num_pages']:
                                 break
                         
-                        # Добавляем только нужное количество результатов
-                        results.extend(page_results[:config['results_per_page']])
-                        total_results += len(page_results[:config['results_per_page']])
-                        print(f"Results on page {page + 1}: {len(page_results[:config['results_per_page']])}")
-                        print(f"Total results so far: {total_results}")
-                        
-                        # Если достигли общего лимита результатов, останавливаемся
-                        if total_results >= config['results_per_page'] * config['num_pages']:
-                            break
+                    except Exception as e:
+                        print(f"Error fetching results for query {query_idx + 1}, page {page}: {str(e)}")
+                        print(f"Full error: {repr(e)}")
                     
-                except Exception as e:
-                    print(f"Error fetching results for page {page}: {str(e)}")
-                    print(f"Full error: {repr(e)}")
-                
-                await asyncio.sleep(REQUEST_DELAY)
-
-    # Возвращаем точное количество запрошенных результатов
-    max_results = config['results_per_page'] * config['num_pages']
-    return results[:max_results]
+                    await asyncio.sleep(REQUEST_DELAY)
+            
+            # Добавляем результаты этого запроса к общим результатам
+            all_results.extend(query_results)
+            print(f"Added {len(query_results)} results from query {query_idx + 1}")
+            print(f"Total results across all queries so far: {len(all_results)}")
+        
+        # Возвращаем все собранные результаты
+        return all_results
 
 
 async def fetch_and_parse(url: str, max_retries: int = 3) -> Optional[Dict[str, Any]]:
@@ -158,7 +195,7 @@ async def fetch_and_parse(url: str, max_retries: int = 3) -> Optional[Dict[str, 
 
     for attempt in range(max_retries):
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession()  as session:
                 async with session.get(url, headers=headers, timeout=30) as response:
                     if response.status == 403:
                         logging.warning(f"Access denied (403) for {url}")
@@ -258,92 +295,28 @@ async def fetch_and_save_articles(query, include, exclude, config, output_filena
         print("No search results found.")
         return []
 
-    articles = await process_search_results(search_results, verbose, proxy)
+    articles = await process_search_results(search_results)
     
     processed_articles = []
     for search_result, article in zip(search_results, articles):
-        processed_article = {
-            'title': search_result.get('title', ''),
-            'link': search_result.get('link', ''),
-            'pubDate': search_result.get('pubDate', ''),
-            'description': article.get('text', '')[:500],  # Taking first 500 characters as description
-            'query': query,
-            'analysis': ''  # Placeholder for future analysis
-        }
-        processed_articles.append(processed_article)
-
-    # Save results after processing the entire search query
-    df = pd.DataFrame(processed_articles)
-    if os.path.exists(output_filename):
-        df.to_csv(output_filename, mode='a', header=False, index=False)
-    else:
+        if article:
+            processed_article = {
+                'title': search_result.get('title', ''),
+                'link': search_result.get('link', ''),
+                'pubDate': search_result.get('pubDate', ''),
+                'description': article.get('description', '')[:5000],  # Ограничиваем длину текста
+                'domain': search_result.get('domain', ''),
+                'snippet': search_result.get('snippet', '')
+            }
+            processed_articles.append(processed_article)
+    
+    # Сохраняем результаты в файл
+    if processed_articles:
+        df = pd.DataFrame(processed_articles)
         df.to_csv(output_filename, index=False)
-
-    print(f"Saved {len(processed_articles)} articles for query: {query}")
+        print(f"Saved {len(processed_articles)} articles to {output_filename}")
+    else:
+        print("No articles to save.")
+    
     return processed_articles
 
-
-def save_results_to_csv(results, output_filename, verbose=False):
-    """
-    Saves the results to a CSV file.
-    
-    Args:
-        results (list): List of results to save.
-        output_filename (str): The filename to save the results.
-        verbose (bool, optional): If True, prints detailed output. Default is False.
-    """
-    if results:
-        df = pd.DataFrame(results)
-        df.to_csv(output_filename, index=False)
-        if verbose:
-            print(f"Extracted articles saved to '{output_filename}'")
-    else:
-        if verbose:
-            print("No articles were extracted.")
-
-
-def extract_text(html: str) -> str:
-    """Извлекает текст из HTML используя newspaper3k и BeautifulSoup как запасной вариант"""
-    try:
-        # Пробуем newspaper3k
-        article = Article('')
-        article.download_state = 2  # Пропускаем скачивание
-        article.html = html
-        article.parse()
-        text = article.text
-        
-        if text and len(text.strip()) > 100:
-            return text.strip()
-    except (ArticleException, Exception) as e:
-        logging.warning(f"newspaper3k extraction failed: {str(e)}")
-    
-    try:
-        # Пробуем BeautifulSoup как запасной вариант
-        soup = BeautifulSoup(html, 'html.parser')
-        # Удаляем скрипты, стили и другой мусор
-        for tag in soup(['script', 'style', 'meta', 'noscript']):
-            tag.decompose()
-        
-        text = ' '.join(soup.stripped_strings)
-        return text.strip()
-    except Exception as e:
-        logging.error(f"BeautifulSoup extraction failed: {str(e)}")
-        return ""
-
-
-def clean_search_results(results: List[Dict]) -> List[Dict]:
-    seen_urls = set()
-    seen_contents = set()
-    unique_results = []
-    
-    for result in results:
-        url = result.get('link', '').split('?')[0]  # Убираем параметры URL
-        content_hash = hashlib.md5(result.get('description', '').encode()).hexdigest()
-        
-        if url not in seen_urls and content_hash not in seen_contents:
-            seen_urls.add(url)
-            seen_contents.add(content_hash)
-            unique_results.append(result)
-            
-    logging.info(f"Filtered {len(results) - len(unique_results)} duplicate results")
-    return unique_results
